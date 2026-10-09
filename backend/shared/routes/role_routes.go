@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"backend/shared/helpers"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -43,7 +44,7 @@ func (o roleActionRouteOperations) List(req *http.Request) (any, error) {
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	includeAll, err := queryBool(req, "all")
+	includeAll, err := helpers.QueryBool(req, "all")
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -60,7 +61,7 @@ func (o roleActionRouteOperations) Create(req *http.Request, body []byte) (any, 
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.RoleAction
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	id, err := service.CreateAction(payload)
@@ -88,7 +89,7 @@ func (o roleActionRouteOperations) Update(req *http.Request, id int64, body []by
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.RoleAction
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id
@@ -114,7 +115,7 @@ func (r *RoleRoutes) List(req *http.Request) (any, error) {
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	includeAll, err := queryBool(req, "all")
+	includeAll, err := helpers.QueryBool(req, "all")
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -132,7 +133,7 @@ func (r *RoleRoutes) Create(req *http.Request, body []byte) (any, error) {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Role
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	id, err := service.Create(payload)
@@ -156,7 +157,7 @@ func (r *RoleRoutes) Update(req *http.Request, id int64, body []byte) error {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Role
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id
@@ -187,7 +188,7 @@ func (r *RoleRoutes) handleRoleRecent(w http.ResponseWriter, req *http.Request) 
 		writeRoleJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	limit, err := queryInt(req, "limit", 0)
+	limit, err := helpers.QueryInt(req, "limit", 0)
 	if err != nil {
 		writeRoleJSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -205,7 +206,7 @@ func (r *RoleRoutes) handleRoleByName(w http.ResponseWriter, req *http.Request) 
 		writeRoleJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	name := routeParam(req, "name")
+	name := helpers.RouteParam(req, "name")
 	if name == "" {
 		writeRoleJSONError(w, http.StatusBadRequest, "invalid role name")
 		return

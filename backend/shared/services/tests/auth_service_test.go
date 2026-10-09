@@ -11,7 +11,6 @@ import (
 	"testing"
 	"time"
 
-	cashiermodels "backend/cashier/models"
 	"backend/shared/connections"
 	"backend/shared/models"
 	"backend/shared/services"
@@ -54,13 +53,31 @@ func TestMain(m *testing.M) {
 	models.NewUser(authServiceDB, models.Auth{AccountID: 7, UserName: "alice"}).Migrate()
 	models.NewAuth(authServiceDB).Migrate()
 	models.NewAccountDevice(authServiceDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
-	models.NewSupplier(authServiceDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
-	cashiermodels.NewLocation(authServiceDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
-	cashiermodels.NewCashDrawerEntry(authServiceDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
+	if _, err := authServiceDB.Exec(`
+		CREATE TABLE IF NOT EXISTS locations (
+			id BIGSERIAL PRIMARY KEY,
+			account_id BIGINT NOT NULL,
+			code VARCHAR(100) NOT NULL,
+			name VARCHAR(255) NOT NULL
+		);
+		CREATE TABLE IF NOT EXISTS cash_drawer_sessions (
+			id BIGSERIAL PRIMARY KEY,
+			account_id BIGINT NOT NULL,
+			location_id BIGINT NOT NULL,
+			cashier_id BIGINT NOT NULL,
+			cashier_name VARCHAR(255) NOT NULL DEFAULT '',
+			session_no VARCHAR(100) NOT NULL DEFAULT '',
+			device_id VARCHAR(255) NOT NULL DEFAULT '',
+			status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
+			opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+		)`); err != nil {
+		fmt.Fprintln(os.Stderr, "create auth service cash drawer test schema:", err)
+		_ = db.Close()
+		os.Exit(1)
+	}
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE users RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE auths RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE account_devices RESTART IDENTITY CASCADE`)
-	_, _ = authServiceDB.Exec(`TRUNCATE TABLE suppliers RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE locations RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_movements RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_sessions RESTART IDENTITY CASCADE`)
@@ -470,29 +487,15 @@ func TestAuthServiceLoginBlocksDifferentUserWhenOpenCashDrawerSessionExistsAtLoc
 		t.Fatalf("expected no error creating second cashier, got %v", err)
 	}
 
-	location := cashiermodels.NewLocation(authServiceDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"})
-	location.Code = "GNS"
-	location.Name = "Gunung Sindur"
-	locationID, err := location.Create()
-	if err != nil {
+	var locationID int64
+	if err := authServiceDB.QueryRow(`INSERT INTO locations (account_id, code, name) VALUES ($1, $2, $3) RETURNING id`, 7, "GNS", "Gunung Sindur").Scan(&locationID); err != nil {
 		t.Fatalf("expected no error creating location, got %v", err)
 	}
-
-	session := cashiermodels.NewCashDrawerEntry(authServiceDB, models.Auth{
-		AccountID: 7,
-		ID:        cashier.ID,
-		Name:      cashier.Username,
-		Email:     cashier.UserEmail,
-	})
-	session.LocationID = locationID
-	session.LocationName = "Gunung Sindur"
-	session.DeviceID = "device-abc"
-	session.CashierID = cashier.ID
-	session.CashierName = cashier.Username
-	session.OpeningAmount = 100000
-	session.Details = "open session for cashier a"
-	openSessionID, err := session.Create()
-	if err != nil {
+	var openSessionID int64
+	if err := authServiceDB.QueryRow(`
+		INSERT INTO cash_drawer_sessions (account_id, location_id, cashier_id, cashier_name, session_no, device_id, status)
+		VALUES ($1, $2, $3, $4, $5, $6, 'OPEN') RETURNING id`,
+		7, locationID, cashier.ID, cashier.Username, "CD-TEST-001", "device-abc").Scan(&openSessionID); err != nil {
 		t.Fatalf("expected no error creating open cash drawer session, got %v", err)
 	}
 	if openSessionID <= 0 {

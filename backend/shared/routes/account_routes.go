@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"encoding/json"
+	"backend/shared/helpers"
 	"errors"
 	"net/http"
 	"strconv"
@@ -25,6 +25,10 @@ func NewAccountRoutes(service *services.AccountService) *AccountRoutes {
 }
 
 func (r *AccountRoutes) Register(router chi.Router) error {
+	return r.RegisterProtected(router)
+}
+
+func (r *AccountRoutes) RegisterProtected(router chi.Router) error {
 	if err := impl.NewMRoutes().RegisterRoutes(loggedRouteRegistrar{router}, "/accounts", r); err != nil {
 		return err
 	}
@@ -40,7 +44,7 @@ func (r *AccountRoutes) List(req *http.Request) (any, error) {
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	includeAll, err := queryBool(req, "all")
+	includeAll, err := helpers.QueryBool(req, "all")
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -56,7 +60,7 @@ func (r *AccountRoutes) Create(req *http.Request, body []byte) (any, error) {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Account
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	id, err := service.Create(payload)
@@ -80,7 +84,7 @@ func (r *AccountRoutes) Update(req *http.Request, id int64, body []byte) error {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Account
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id
@@ -103,103 +107,93 @@ func (r *AccountRoutes) Delete(req *http.Request, id int64) error {
 
 func (r *AccountRoutes) handleAccountRecent(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	limit, err := queryInt(req, "limit", 0)
+	limit, err := helpers.QueryInt(req, "limit", 0)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	items, err := service.FindRecentList(limit, req.URL.Query().Get("search"))
 	if err != nil {
-		writeJSONError(w, http.StatusInternalServerError, err.Error())
+		helpers.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{"data": items})
 }
 
 func (r *AccountRoutes) handleAccountActivate(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, err := routeInt64Param(req, "id", "account")
+	id, err := helpers.RouteInt64Param(req, "id", "account")
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := service.ActivateAccount(id); err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"message": "activated"})
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{"message": "activated"})
 }
 
 func (r *AccountRoutes) handleAccountOTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, err := routeInt64Param(req, "id", "account")
+	id, err := helpers.RouteInt64Param(req, "id", "account")
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	otp, err := service.GenerateAccountOTP(id)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"otp": otp})
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{"otp": otp})
 }
 
 func (r *AccountRoutes) handleAccountByEmail(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodGet {
-		writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		helpers.WriteJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	email := routeParam(req, "email")
+	email := helpers.RouteParam(req, "email")
 	if email == "" {
-		writeJSONError(w, http.StatusBadRequest, "invalid account email")
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid account email")
 		return
 	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	account, err := service.FindByEmail(email)
 	if err != nil {
-		writeJSONError(w, http.StatusNotFound, err.Error())
+		helpers.WriteJSONError(w, http.StatusNotFound, err.Error())
 		return
 	}
-	writeJSON(w, http.StatusOK, map[string]interface{}{"data": account})
-}
-
-func writeJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func writeJSONError(w http.ResponseWriter, status int, message string) {
-	writeJSON(w, status, map[string]string{"error": message})
+	helpers.WriteJSON(w, http.StatusOK, map[string]interface{}{"data": account})
 }
 
 func authFromRequest(req *http.Request) (models.Auth, error) {

@@ -6,6 +6,8 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'pages/home/home_page.dart';
 import 'pages/feature_placeholder_page.dart';
+import 'pages/account_profile_page.dart';
+import 'pages/change_password_page.dart';
 import 'pages/chat/chat_page.dart';
 import 'pages/login/splash_page.dart';
 import 'pages/notifications/notification_page.dart';
@@ -71,6 +73,9 @@ class MobileApp extends StatelessWidget {
           selectedDestination: MenuDestination.history,
         ),
         '/profile': (_) => const ProfilePage(),
+        '/profile/account': (_) => const AccountProfilePage(),
+        '/profile/user': (_) => const ProfilePage(),
+        '/profile/change-password': (_) => const ChangePasswordPage(),
         '/notifications': (_) => const NotificationPage(),
         '/users': (_) => UsersListPage(
           service: AppConfig.useDummyUsers ? DummyUserService() : null,

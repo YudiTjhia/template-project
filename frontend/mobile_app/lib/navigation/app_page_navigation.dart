@@ -7,6 +7,7 @@ class AppPageMenuItem {
     this.route,
     this.subtitle,
     this.children = const [],
+    this.action,
   });
 
   final String title;
@@ -14,6 +15,7 @@ class AppPageMenuItem {
   final String? route;
   final String? subtitle;
   final List<AppPageMenuItem> children;
+  final AppPageMenuAction? action;
 
   bool get hasChildren => children.isNotEmpty;
 }
@@ -49,10 +51,26 @@ class AppPageNavigation {
       ],
     ),
     AppPageMenuItem(
-      title: 'Profil',
-      icon: Icons.person_outline,
-      route: '/profile',
-      subtitle: 'Lihat dan ubah profil akun',
+      title: 'Profile',
+      icon: Icons.account_circle_outlined,
+      subtitle: 'Pengaturan account dan user profile',
+      children: [
+        AppPageMenuItem(
+          title: 'Account Profile',
+          icon: Icons.manage_accounts_outlined,
+          route: '/profile/account',
+        ),
+        AppPageMenuItem(
+          title: 'User Profile',
+          icon: Icons.person_outline,
+          route: '/profile/user',
+        ),
+        AppPageMenuItem(
+          title: 'Change Password',
+          icon: Icons.lock_outline,
+          route: '/profile/change-password',
+        ),
+      ],
     ),
     AppPageMenuItem(
       title: 'User Management',
@@ -72,6 +90,11 @@ class AppPageNavigation {
           subtitle: 'Atur role dan hak akses',
         ),
       ],
+    ),
+    AppPageMenuItem(
+      title: 'Logout',
+      icon: Icons.logout,
+      action: AppPageMenuAction.logout,
     ),
   ];
 
@@ -100,3 +123,5 @@ class AppPageNavigation {
     return Navigator.of(context).pushNamed<T>(route);
   }
 }
+
+enum AppPageMenuAction { logout }

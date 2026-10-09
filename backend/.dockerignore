@@ -8,6 +8,12 @@
 **/node_modules/**
 **/__pycache__/**
 **/*.log
+**/coverage/**
+**/tmp/**
+**/dist/**
+**/build/**
+**/*.test
+**/*.out
 *.pem
 *.key
 *.p12
@@ -17,7 +23,6 @@
 **/*service-account*.json
 **/*credentials*.json
 **/secrets/**
-coverage/
 *.dump
 *.sql.gz
 *.tfstate

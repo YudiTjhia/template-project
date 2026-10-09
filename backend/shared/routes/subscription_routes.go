@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"backend/shared/helpers"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -52,7 +53,7 @@ func (r *SubscriptionRoutes) Create(req *http.Request, body []byte) (any, error)
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Subscription
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	id, err := service.Create(payload)
@@ -76,7 +77,7 @@ func (r *SubscriptionRoutes) Update(req *http.Request, id int64, body []byte) er
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.Subscription
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id
@@ -98,7 +99,7 @@ func (r *SubscriptionRoutes) Delete(req *http.Request, id int64) error {
 }
 
 func (r *SubscriptionRoutes) handleSubscriptionAdjustUsersRoute(w http.ResponseWriter, req *http.Request) {
-	id, err := routeInt64Param(req, "id", "subscription")
+	id, err := helpers.RouteInt64Param(req, "id", "subscription")
 	if err != nil {
 		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
 		return
@@ -107,7 +108,7 @@ func (r *SubscriptionRoutes) handleSubscriptionAdjustUsersRoute(w http.ResponseW
 }
 
 func (r *SubscriptionRoutes) handleSubscriptionHistoriesRoute(w http.ResponseWriter, req *http.Request) {
-	id, err := routeInt64Param(req, "id", "subscription")
+	id, err := helpers.RouteInt64Param(req, "id", "subscription")
 	if err != nil {
 		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
 		return

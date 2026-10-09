@@ -224,6 +224,38 @@ class LoginService extends BaseService {
     }
   }
 
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    late final http.Response response;
+    try {
+      response = await client.post(
+        Uri.parse('${AppConfig.baseUrl}/api/auth/change-password-pin'),
+        headers: await sessionJsonHeaders,
+        body: await encryptJsonBody({
+          'currentPassword': currentPassword,
+          'newPassword': newPassword,
+          'confirmPassword': confirmPassword,
+          'pin': '',
+          'confirmPin': '',
+        }),
+      );
+    } on Exception catch (error) {
+      throw LoginServiceException('Tidak dapat mengubah password: $error');
+    }
+
+    final payload = _decodeObject(response.body);
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw LoginServiceException(
+        payload['message']?.toString() ??
+            payload['error']?.toString() ??
+            'Gagal mengubah password (${response.statusCode})',
+      );
+    }
+  }
+
   Future<int?> getAccountId() => SessionHelper.getAccountId();
 
   Future<int?> getUserId() => SessionHelper.getUserId();

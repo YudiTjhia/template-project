@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"backend/shared/helpers"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -35,7 +36,7 @@ func (r *ApprovalRoutes) List(req *http.Request) (any, error) {
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	includeAll, err := queryBool(req, "all")
+	includeAll, err := helpers.QueryBool(req, "all")
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -51,7 +52,7 @@ func (r *ApprovalRoutes) Create(req *http.Request, body []byte) (any, error) {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.ApprovalRule
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	id, err := service.SaveRule(payload)
@@ -75,7 +76,7 @@ func (r *ApprovalRoutes) Update(req *http.Request, id int64, body []byte) error 
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.ApprovalRule
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id

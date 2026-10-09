@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../../services/login_service.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/msg_box.dart';
 import '../../navigation/app_drawer_menu.dart';
-import '../login/login_page.dart';
 
 import 'package:mobile_app/models/profile_model.dart';
 import 'package:mobile_app/services/profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key, this.enableDrawer = true});
+  const ProfilePage({
+    super.key,
+    this.enableDrawer = true,
+    this.selectedRoute = '/profile/user',
+  });
 
   final bool enableDrawer;
+  final String selectedRoute;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -23,7 +26,6 @@ class _ProfilePageState extends State<ProfilePage> {
   ProfileModel? _profile;
   String? _errorMessage;
   bool _isLoading = true;
-  bool _isLoggingOut = false;
   bool _isSavingProfile = false;
 
   @override
@@ -47,39 +49,6 @@ class _ProfilePageState extends State<ProfilePage> {
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
-  }
-
-  Future<void> _logout() async {
-    final shouldLogout = await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Logout'),
-        content: const Text('Yakin ingin keluar dari akun ini?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Batal'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Logout'),
-          ),
-        ],
-      ),
-    );
-    if (shouldLogout != true || !mounted) return;
-
-    setState(() => _isLoggingOut = true);
-    try {
-      await LoginService().logout();
-    } catch (_) {
-      // The local session is cleared in LoginService even if the server is offline.
-    }
-    if (!mounted) return;
-    Navigator.of(context).pushAndRemoveUntil(
-      MaterialPageRoute<void>(builder: (_) => const LoginPage()),
-      (_) => false,
-    );
   }
 
   Future<void> _editProfile() async {
@@ -191,29 +160,12 @@ class _ProfilePageState extends State<ProfilePage> {
       backgroundColor: AppTheme.pageBackgroundColor,
       appBar: AppBar(title: const Text('Profile')),
       drawer: widget.enableDrawer
-          ? const AppDrawerMenu(selectedRoute: '/profile')
+          ? AppDrawerMenu(selectedRoute: widget.selectedRoute)
           : null,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),
-          children: [
-            _buildProfileCard(),
-            const SizedBox(height: 20),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.logout, color: Colors.red),
-                title: const Text('Logout'),
-                trailing: _isLoggingOut
-                    ? const SizedBox.square(
-                        dimension: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.chevron_right),
-                enabled: !_isLoggingOut,
-                onTap: _isLoggingOut ? null : _logout,
-              ),
-            ),
-          ],
+          children: [_buildProfileCard()],
         ),
       ),
     );

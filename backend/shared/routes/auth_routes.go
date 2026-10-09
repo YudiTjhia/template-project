@@ -24,19 +24,42 @@ func NewAuthRoutes(accountService *services.AccountService, authService *service
 }
 
 func (r *AuthRoutes) Register(router chi.Router) {
-	registerLoggedHandler(router, "/auth/*", r.handleAuth)
+	r.RegisterPublic(router)
+}
+
+func (r *AuthRoutes) RegisterPublic(router chi.Router) {
+	for _, path := range []string{
+		"/auth/login",
+		"/auth/login/pin",
+		"/auth/refresh",
+		"/auth/logout",
+		"/auth/change-password-pin",
+		"/auth/accounts/register",
+		"/auth/accounts/verify",
+		"/auth/accounts/resend-otp",
+		"/auth/users/otp",
+		"/auth/users/verify",
+		"/auth/users/pin/status",
+		"/auth/users/pin/verify",
+	} {
+		registerLoggedHandler(router, path, r.handleAuth)
+	}
+}
+
+// RegisterProtected registers auth endpoints that require an authenticated
+// session. Call this with a router wrapped in auth middleware.
+func (r *AuthRoutes) RegisterProtected(router chi.Router) {
+	registerLoggedHandler(router, "/auth/account-devices/location", r.handleAccountDeviceLocation)
 }
 
 func (r *AuthRoutes) handleAuth(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/auth/*")
+	path := strings.TrimPrefix(req.URL.Path, "/auth/")
 	path = strings.Trim(path, "/")
 	switch path {
 	case "login":
 		r.handleLogin(w, req)
 	case "login/pin":
 		r.handleLoginPIN(w, req)
-	case "account-devices/location":
-		r.handleAccountDeviceLocation(w, req)
 	case "refresh":
 		r.handleRefresh(w, req)
 	case "logout":

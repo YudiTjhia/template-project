@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"net/smtp"
@@ -8,6 +9,7 @@ import (
 	"strings"
 
 	"backend/shared/helpers"
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -39,7 +41,37 @@ func NewNotificationService(db *sqlx.DB, auth models.Auth) *NotificationService 
 }
 
 func (s *NotificationService) Migrate() {
-	models.NewNotification(s.DB, s.Auth).Migrate()
+	if err := s.newNotificationMModel().Migrate(); err != nil {
+		panic(err)
+	}
+}
+
+func (s *NotificationService) newNotificationMModel() *mmodels.NotificationMModel {
+	model := mmodels.NewNotificationMModel(context.Background(), s.DB)
+	model.AccountID = s.Auth.AccountID
+	model.AuthAccountID = s.Auth.AccountID
+	model.AuthEmail = s.Auth.Email
+	model.AuthUserName = s.Auth.UserName
+	return model
+}
+
+func notificationMModelToDTO(item *mmodels.NotificationMModel, db *sqlx.DB, auth models.Auth) models.Notification {
+	dto := models.Notification{
+		BaseModel: models.BaseModel{DB: db, Auth: auth, CreatedAt: item.CreatedAt, CreatedBy: item.CreatedBy},
+		ID:        item.ID, AccountID: item.AccountID, RecipientUserID: item.RecipientUserID,
+		RecipientEmail: item.RecipientEmail, Title: item.Title, Message: item.Message,
+		EntityType: item.EntityType, EntityID: item.EntityID, EntityNumber: item.EntityNumber,
+		Action: item.Action, IsRead: item.IsRead, ReadAt: item.ReadAt,
+	}
+	if item.UpdatedAt.Valid {
+		updatedAt := item.UpdatedAt.Time
+		dto.UpdatedAt = &updatedAt
+	}
+	if item.UpdatedBy.Valid {
+		updatedBy := item.UpdatedBy.String
+		dto.UpdatedBy = &updatedBy
+	}
+	return dto
 }
 
 func (s *NotificationService) NotifyAccountUsers(event NotificationEvent) {
@@ -58,17 +90,24 @@ func (s *NotificationService) NotifyAccountUsers(event NotificationEvent) {
 
 func (s *NotificationService) FindList(search string, limit int) ([]models.Notification, error) {
 	userID, email := s.currentRecipientIdentity()
-	return models.NewNotification(s.DB, s.Auth).FindList(userID, email, search, limit)
+	items, err := s.newNotificationMModel().FindList(userID, email, search, limit)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]models.Notification, 0, len(items))
+	for i := range items {
+		result = append(result, notificationMModelToDTO(&items[i], s.DB, s.Auth))
+	}
+	return result, nil
 }
 
 func (s *NotificationService) CountUnread() (int64, error) {
 	userID, email := s.currentRecipientIdentity()
-	return models.NewNotification(s.DB, s.Auth).CountUnread(userID, email)
+	return s.newNotificationMModel().CountUnread(userID, email)
 }
 
 func (s *NotificationService) MarkRead(id int64) error {
-	model := models.NewNotification(s.DB, s.Auth)
-	return model.MarkRead(id)
+	return s.newNotificationMModel().MarkRead(id)
 }
 
 func (s *NotificationService) notifyRecipients(event NotificationEvent, recipients []notificationRecipient) {
@@ -91,7 +130,7 @@ func (s *NotificationService) notifyRecipients(event NotificationEvent, recipien
 		}
 		seen[key] = struct{}{}
 
-		model := models.NewNotification(s.DB, s.Auth)
+		model := s.newNotificationMModel()
 		model.RecipientUserID = recipient.UserID
 		model.RecipientEmail = recipient.Email
 		model.Title = event.Title
@@ -112,12 +151,9 @@ func (s *NotificationService) notifyRecipients(event NotificationEvent, recipien
 }
 
 func (s *NotificationService) findActiveAccountRecipients() ([]notificationRecipient, error) {
-	var rows []struct {
-		ID        int64  `db:"id"`
-		UserEmail string `db:"user_email"`
-		Username  string `db:"username"`
-	}
-	if err := s.DB.Select(&rows, `SELECT id, user_email, username FROM users WHERE account_id = $1 AND is_active = true ORDER BY id ASC`, s.Auth.AccountID); err != nil {
+	userModel := mmodels.NewUserMModel(context.Background(), s.DB)
+	rows, err := userModel.FindActiveByAccount_(s.Auth.AccountID)
+	if err != nil {
 		log.Printf("[WARN] active user notification lookup failed, fallback to auths: %v", err)
 	}
 
@@ -160,16 +196,16 @@ func (s *NotificationService) findAuthRecipients() ([]notificationRecipient, err
 }
 
 func (s *NotificationService) currentRecipientIdentity() (int64, string) {
-	userModel := models.NewUser(s.DB, s.Auth)
+	userModel := mmodels.NewUserMModel(context.Background(), s.DB)
+	userModel.AccountID = s.Auth.AccountID
+	userModel.AuthAccountID = s.Auth.AccountID
 	if strings.TrimSpace(s.Auth.Email) != "" {
-		userModel.UserEmail = s.Auth.Email
-		if user, err := userModel.FindByEmail(); err == nil && user != nil {
+		if user, err := userModel.FindByEmail(s.Auth.Email); err == nil && user != nil {
 			return user.ID, user.UserEmail
 		}
 	}
 	if strings.TrimSpace(s.Auth.UserName) != "" {
-		userModel.Username = s.Auth.UserName
-		if user, err := userModel.FindByUsername(); err == nil && user != nil {
+		if user, err := userModel.FindByUsername(s.Auth.UserName); err == nil && user != nil {
 			return user.ID, user.UserEmail
 		}
 	}

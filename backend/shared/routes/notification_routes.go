@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"backend/shared/helpers"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -42,7 +43,7 @@ func (r *NotificationRoutes) List(req *http.Request) (any, error) {
 			Body:   map[string]interface{}{"unreadCount": count},
 		}, nil
 	}
-	limit, err := queryInt(req, "limit", 0)
+	limit, err := helpers.QueryInt(req, "limit", 0)
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -54,7 +55,7 @@ func (r *NotificationRoutes) handleMarkRead(w http.ResponseWriter, req *http.Req
 		writeNotificationJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-	id, err := routeInt64Param(req, "id", "notification")
+	id, err := helpers.RouteInt64Param(req, "id", "notification")
 	if err != nil {
 		writeNotificationJSONError(w, http.StatusBadRequest, err.Error())
 		return

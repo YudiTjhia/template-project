@@ -37,7 +37,10 @@ ENV NEXT_TELEMETRY_DISABLED=1 \
     NEXT_PUBLIC_FIREBASE_VAPID_KEY=${NEXT_PUBLIC_FIREBASE_VAPID_KEY}
 COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
-RUN mkdir -p public && npm run build
+# Persist Next's compiler cache between builds without including it in the
+# runtime image.
+RUN --mount=type=cache,target=/app/.next/cache mkdir -p public \
+    && npm run build
 
 FROM node:24-alpine AS runner
 WORKDIR /app
@@ -47,11 +50,14 @@ ENV NODE_ENV=production \
     HOSTNAME="0.0.0.0"
 
 RUN addgroup --system --gid 1001 nodejs \
-    && adduser --system --uid 1001 nextjs
+    && adduser --system --uid 1001 nextjs \
+    && mkdir -p .next \
+    && chown nextjs:nodejs .next
 
-COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
 COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+# A public directory is optional in Next.js projects.
+COPY --from=builder --chown=nextjs:nodejs /app/public ./public
 
 USER nextjs
 EXPOSE 3000

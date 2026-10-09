@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../config/app_config.dart';
+import '../pages/login/login_page.dart';
+import '../services/login_service.dart';
 import 'app_page_navigation.dart';
 
 /// Shared navigation drawer populated with the application's standard pages.
@@ -62,19 +64,56 @@ class AppDrawerMenu extends StatelessWidget {
     }
 
     final route = item.route;
+    final action = item.action;
     return ListTile(
       leading: Icon(item.icon),
       title: Text(item.title),
       subtitle: item.subtitle == null ? null : Text(item.subtitle!),
       selected: route != null && route == selectedRoute,
-      onTap: route == null
+      iconColor: action == AppPageMenuAction.logout ? Colors.red : null,
+      textColor: action == AppPageMenuAction.logout ? Colors.red : null,
+      onTap: action == AppPageMenuAction.logout
+          ? () => _logout(context)
+          : route == null
           ? null
           : () {
               Navigator.of(context).pop();
-              if (route != selectedRoute) {
-                AppPageNavigation.go(context, route);
-              }
+              if (route != selectedRoute) AppPageNavigation.go(context, route);
             },
+    );
+  }
+
+  Future<void> _logout(BuildContext context) async {
+    final shouldLogout = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Logout'),
+        content: const Text('Yakin ingin keluar dari akun ini?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Logout'),
+          ),
+        ],
+      ),
+    );
+    if (shouldLogout != true || !context.mounted) return;
+
+    try {
+      await LoginService().logout();
+    } catch (_) {
+      // LoginService clears the local session even if the API is unavailable.
+    }
+    if (!context.mounted) return;
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute<void>(
+        builder: (_) => LoginPage(appTitle: AppConfig.appTitle),
+      ),
+      (_) => false,
     );
   }
 

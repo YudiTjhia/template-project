@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"encoding/base64"
@@ -13,6 +14,7 @@ import (
 	"time"
 
 	"backend/shared/helpers"
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -53,7 +55,30 @@ func (s *AuthService) NewAuth() models.Auth {
 }
 
 func (s *AuthService) Migrate() {
-	s.NewAuth().Migrate()
+	if err := s.newAuthMModel().Migrate(); err != nil {
+		panic(err)
+	}
+}
+
+func (s *AuthService) newAuthMModel() *mmodels.AuthMModel {
+	return mmodels.NewAuthMModel(context.Background(), s.DB)
+}
+
+func authMModelToDTO(record *mmodels.AuthMModel, db *sqlx.DB) *models.Auth {
+	if record == nil {
+		return nil
+	}
+	dto := &models.Auth{
+		DB: db, ID: record.ID, AccountID: record.AccountID, UserName: record.UserName,
+		Email: record.Email, Name: record.Name, Token: record.Token, TokenExpired: record.TokenExpired,
+		IsExpired: record.IsExpired, OTP: record.OTP, OTPExpired: record.OTPExpired,
+		CreatedAt: record.CreatedAt,
+	}
+	if record.UpdatedAt.Valid {
+		updatedAt := record.UpdatedAt.Time
+		dto.UpdatedAt = &updatedAt
+	}
+	return dto
 }
 
 func (s *AuthService) Login(identifier, password string, locationID int64, deviceID string) (string, error) {
@@ -145,7 +170,7 @@ func (s *AuthService) ChangePasswordAndPIN(token, currentPassword, newPassword, 
 		return errors.New("pin wajib diisi jika confirm pin diisi")
 	}
 
-	auth := s.NewAuth()
+	auth := s.newAuthMModel()
 	auth.Token = token
 	record, err := auth.FindByToken()
 	if err != nil {
@@ -267,23 +292,13 @@ func (s *AuthService) issueSessionForUser(record *models.User) (string, error) {
 		}
 	}()
 
-	if !isCustomerTableUser(record) {
-		expireQuery := `UPDATE auths
-	SET is_expired = true,
-		token_expired = NOW(),
-		updated_at = NOW()
-	WHERE account_id = $1
-		AND LOWER(email) = LOWER($2)
-		AND is_expired = false`
-		if _, err := tx.Exec(expireQuery, record.AccountID, email); err != nil {
-			return "", err
-		}
-	}
-
-	createQuery := `INSERT INTO auths
-	(account_id, email, name, token, token_expired, is_expired, otp, otp_expired)
-	VALUES ($1, $2, $3, $4, $5, false, '', NULL)`
-	if _, err := tx.Exec(createQuery, record.AccountID, email, name, token, tokenExpired); err != nil {
+	authRecord := s.newAuthMModel()
+	authRecord.AccountID = record.AccountID
+	authRecord.Email = email
+	authRecord.Name = name
+	authRecord.Token = token
+	authRecord.TokenExpired = &tokenExpired
+	if err := authRecord.CreateSessionTx(tx, !isCustomerTableUser(record)); err != nil {
 		return "", err
 	}
 
@@ -300,21 +315,15 @@ func (s *AuthService) reuseCustomerTableSession(record *models.User) (string, er
 		return "", sql.ErrNoRows
 	}
 
-	var existing models.Auth
-	err := s.DB.Get(&existing, `SELECT `+authSelectColumnsForAuthService+`
-		FROM auths a
-		WHERE a.account_id = $1
-			AND LOWER(a.email) = LOWER($2)
-			AND a.is_expired = false
-			AND (a.token_expired IS NULL OR a.token_expired > NOW())
-		ORDER BY a.updated_at DESC NULLS LAST, a.id DESC
-		LIMIT 1`, record.AccountID, strings.ToLower(strings.TrimSpace(record.UserEmail)))
+	existing := s.newAuthMModel()
+	existing.AccountID = record.AccountID
+	existing.Email = record.UserEmail
+	existing, err := existing.FindReusableSession()
 	if err != nil {
 		return "", err
 	}
 
 	nextExpired := time.Now().UTC().Add(24 * time.Hour)
-	existing.DB = s.DB
 	if err := existing.ExtendByToken(nextExpired); err != nil {
 		return "", err
 	}
@@ -435,13 +444,13 @@ func (s *AuthService) ExpireSession(token string) error {
 		return err
 	}
 
-	auth := s.NewAuth()
+	auth := s.newAuthMModel()
 	auth.Token = token
 	return auth.ExpireByToken()
 }
 
 func (s *AuthService) ensureLogoutAllowed(token string) error {
-	auth := s.NewAuth()
+	auth := s.newAuthMModel()
 	auth.Token = token
 	record, err := auth.FindByToken()
 	if err != nil {
@@ -517,7 +526,7 @@ func (s *AuthService) RefreshSession(token string) (*models.Auth, error) {
 		return nil, errors.New("token wajib diisi")
 	}
 
-	auth := s.NewAuth()
+	auth := s.newAuthMModel()
 	auth.Token = token
 	record, err := auth.FindByToken()
 	if err != nil {
@@ -526,8 +535,6 @@ func (s *AuthService) RefreshSession(token string) (*models.Auth, error) {
 		}
 		return nil, err
 	}
-	record.DB = s.DB
-
 	if record.IsExpired {
 		return nil, errors.New("session sudah expired")
 	}
@@ -542,7 +549,7 @@ func (s *AuthService) RefreshSession(token string) (*models.Auth, error) {
 		return nil, err
 	}
 
-	return record, nil
+	return authMModelToDTO(record, s.DB), nil
 }
 
 // ResolveSessionAccess reads the current roles from the database. It is meant
@@ -611,8 +618,6 @@ func isCustomerTableUser(user *models.User) bool {
 	return strings.EqualFold(strings.TrimSpace(user.LoginType), models.LoginTypeCustomerTable)
 }
 
-const authSelectColumnsForAuthService = `a.id, a.account_id, a.email, a.name, a.token, a.token_expired, a.is_expired, a.otp, a.otp_expired, a.created_at, a.updated_at`
-
 func (s *AuthService) GenerateLoginOTP(identifier string) (int64, error) {
 	identifier = strings.TrimSpace(identifier)
 	if identifier == "" {
@@ -638,7 +643,7 @@ func (s *AuthService) GenerateLoginOTP(identifier string) (int64, error) {
 	}
 
 	expired := time.Now().UTC().Add(10 * time.Minute)
-	authRecord := s.NewAuth()
+	authRecord := s.newAuthMModel()
 	authRecord.AccountID = userRecord.AccountID
 	authRecord.Email = userRecord.UserEmail
 	authRecord.Name = userRecord.Username
@@ -678,7 +683,7 @@ func (s *AuthService) VerifyLoginOTP(identifier, otp string) (*models.Auth, erro
 		return nil, err
 	}
 
-	auth := s.NewAuth()
+	auth := s.newAuthMModel()
 	auth.AccountID = userRecord.AccountID
 	auth.Email = userRecord.UserEmail
 
@@ -686,8 +691,6 @@ func (s *AuthService) VerifyLoginOTP(identifier, otp string) (*models.Auth, erro
 	if err != nil {
 		return nil, err
 	}
-	authRecord.DB = s.DB
-
 	if strings.TrimSpace(authRecord.OTP) == "" {
 		return nil, errors.New("otp belum dibuat")
 	}
@@ -706,7 +709,7 @@ func (s *AuthService) VerifyLoginOTP(identifier, otp string) (*models.Auth, erro
 		return nil, err
 	}
 
-	return authRecord, nil
+	return authMModelToDTO(authRecord, s.DB), nil
 }
 
 func (s *AuthService) VerifyPIN(token, pin string) (*models.Auth, error) {

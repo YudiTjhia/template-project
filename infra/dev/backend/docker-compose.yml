@@ -5,6 +5,8 @@ services:
     build:
       context: ../../../backend
       dockerfile: Dockerfile
+      additional_contexts:
+        gomodcache: ${GO_MOD_CACHE_CONTEXT:-/home/yudi/go/pkg/mod/cache/download}
     image: template-project-backend:dev
     container_name: template-project-backend-dev
     environment:

@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"encoding/json"
+	"backend/shared/helpers"
 	"errors"
 	"net/http"
 
@@ -40,31 +40,30 @@ func (r *UserRoutes) Register(router chi.Router) error {
 }
 
 func (r *UserRoutes) handleUserRecent(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	if !helpers.RequireMethod(w, req, http.MethodGet) {
 		return
 	}
 
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	limit, err := queryInt(req, "limit", 0)
+	limit, err := helpers.QueryInt(req, "limit", 0)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	search := req.URL.Query().Get("search")
 
 	items, err := service.FindRecentList(limit, search)
 	if err != nil {
-		writeUserJSONError(w, http.StatusInternalServerError, err.Error())
+		helpers.WriteJSONError(w, http.StatusInternalServerError, err.Error())
 		return
 	}
 
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	helpers.WriteDataJSON(w, http.StatusOK, items)
 }
 
 func (r *UserRoutes) List(req *http.Request) (any, error) {
@@ -74,7 +73,7 @@ func (r *UserRoutes) List(req *http.Request) (any, error) {
 	}
 
 	search := req.URL.Query().Get("search")
-	includeAll, err := queryBool(req, "all")
+	includeAll, err := helpers.QueryBool(req, "all")
 	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
@@ -97,12 +96,10 @@ func (r *UserRoutes) Create(req *http.Request, body []byte) (any, error) {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 
-	var request userRequest
-	if err := decodeJSONBytes(body, &request); err != nil {
+	payload, err := decodeUserPayload(body)
+	if err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	payload := request.User
-	payload.UserPassword = request.Password
 
 	id, err := service.Create(payload)
 	if err != nil {
@@ -128,12 +125,10 @@ func (r *UserRoutes) Update(req *http.Request, id int64, body []byte) error {
 	if err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	var request userRequest
-	if err := decodeJSONBytes(body, &request); err != nil {
+	payload, err := decodeUserPayload(body)
+	if err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	payload := request.User
-	payload.UserPassword = request.Password
 	payload.ID = id
 	if err := service.Update(payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
@@ -152,28 +147,24 @@ func (r *UserRoutes) Delete(req *http.Request, id int64) error {
 	return nil
 }
 
-func userRouteID(req *http.Request) (int64, error) {
-	return routeInt64Param(req, "id", "user")
-}
-
 func (r *UserRoutes) handleUserProfileRoute(w http.ResponseWriter, req *http.Request) {
-	id, err := userRouteID(req)
+	id, err := helpers.RouteInt64Param(req, "id", "user")
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid user id")
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	r.handleUserProfileUpdate(w, req, id, service)
 }
 
 func (r *UserRoutes) handleUserActivateRoute(w http.ResponseWriter, req *http.Request) {
-	id, err := userRouteID(req)
+	id, err := helpers.RouteInt64Param(req, "id", "user")
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid user id")
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
 	r.handleUserActivate(w, req, id)
@@ -185,8 +176,7 @@ func (r *UserRoutes) handleUserProfileUpdate(
 	id int64,
 	service *services.UserService,
 ) {
-	if req.Method != http.MethodPatch {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	if !helpers.RequireMethod(w, req, http.MethodPatch) {
 		return
 	}
 
@@ -194,100 +184,85 @@ func (r *UserRoutes) handleUserProfileUpdate(
 		Username string `json:"username"`
 		Email    string `json:"email"`
 	}
-	if err := decodeJSONRequest(req, &payload); err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
+	if err := helpers.DecodeJSONRequest(req, &payload); err != nil {
+		helpers.WriteJSONError(w, http.StatusBadRequest, "invalid json payload")
 		return
 	}
 
 	if err := service.UpdateCurrentProfile(id, payload.Username, payload.Email); err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"message": "profile updated"})
+	helpers.WriteMessageJSON(w, http.StatusOK, "profile updated")
 }
 
 func (r *UserRoutes) handleUserActivate(w http.ResponseWriter, req *http.Request, id int64) {
-	if req.Method != http.MethodPost {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	if !helpers.RequireMethod(w, req, http.MethodPost) {
 		return
 	}
 
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
 	if err := service.ActivateUser(id); err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"message": "activated"})
+	helpers.WriteMessageJSON(w, http.StatusOK, "activated")
 }
 
 func (r *UserRoutes) handleUserByEmail(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
-	service, err := r.serviceForRequest(req)
-	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	email := routeParam(req, "email")
-	if email == "" {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid user email")
-		return
-	}
-
-	user, err := service.FindByEmail(email)
-	if err != nil {
-		writeUserJSONError(w, http.StatusNotFound, err.Error())
-		return
-	}
-
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": user})
+	r.handleUserLookup(w, req, "email", "invalid user email", (*services.UserService).FindByEmail)
 }
 
 func (r *UserRoutes) handleUserByUsername(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+	r.handleUserLookup(w, req, "username", "invalid username", (*services.UserService).FindByUsername)
+}
+
+func (r *UserRoutes) handleUserLookup(
+	w http.ResponseWriter,
+	req *http.Request,
+	paramName string,
+	invalidValueMessage string,
+	find func(*services.UserService, string) (*models.User, error),
+) {
+	if !helpers.RequireMethod(w, req, http.MethodGet) {
 		return
 	}
 
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		helpers.WriteJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 
-	username := routeParam(req, "username")
-	if username == "" {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid username")
+	value := helpers.RouteParam(req, paramName)
+	if value == "" {
+		helpers.WriteJSONError(w, http.StatusBadRequest, invalidValueMessage)
 		return
 	}
 
-	user, err := service.FindByUsername(username)
+	user, err := find(service, value)
 	if err != nil {
-		writeUserJSONError(w, http.StatusNotFound, err.Error())
+		helpers.WriteJSONError(w, http.StatusNotFound, err.Error())
 		return
 	}
 
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": user})
+	helpers.WriteDataJSON(w, http.StatusOK, user)
 }
 
-func writeUserJSON(w http.ResponseWriter, status int, payload interface{}) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	_ = json.NewEncoder(w).Encode(payload)
-}
-
-func writeUserJSONError(w http.ResponseWriter, status int, message string) {
-	writeUserJSON(w, status, map[string]string{"error": message})
+func decodeUserPayload(body []byte) (models.User, error) {
+	var request userRequest
+	if err := helpers.DecodeJSONBytes(body, &request); err != nil {
+		return models.User{}, err
+	}
+	payload := request.User
+	payload.UserPassword = request.Password
+	return payload, nil
 }
 
 func (r *UserRoutes) serviceForRequest(req *http.Request) (*services.UserService, error) {

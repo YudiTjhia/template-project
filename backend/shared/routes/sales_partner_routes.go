@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"backend/shared/helpers"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -49,7 +50,7 @@ func (r *SalesPartnerRoutes) Create(req *http.Request, body []byte) (any, error)
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.SalesPartner
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	return service.Create(payload)
@@ -69,7 +70,7 @@ func (r *SalesPartnerRoutes) Update(req *http.Request, id int64, body []byte) er
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	var payload models.SalesPartner
-	if err := decodeJSONBytes(body, &payload); err != nil {
+	if err := helpers.DecodeJSONBytes(body, &payload); err != nil {
 		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload.ID = id
@@ -107,14 +108,14 @@ func (r *SalesPartnerRoutes) handleAccountsRoute(w http.ResponseWriter, req *htt
 		writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	partnerID, err := routeInt64Param(req, "id", "sales partner")
+	partnerID, err := helpers.RouteInt64Param(req, "id", "sales partner")
 	if err != nil {
 		writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	accountID := int64(0)
-	if routeParam(req, "accountID") != "" {
-		accountID, err = routeInt64Param(req, "accountID", "account")
+	if helpers.RouteParam(req, "accountID") != "" {
+		accountID, err = helpers.RouteInt64Param(req, "accountID", "account")
 		if err != nil {
 			writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 			return

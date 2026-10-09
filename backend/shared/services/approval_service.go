@@ -550,15 +550,18 @@ func (s *ApprovalService) applyAction(input ApprovalActionInput, action string) 
 		return errors.New("aksi approval tidak valid")
 	}
 
+	if finalApprovalStatus != "" {
+		if err := s.syncDocumentStatusTx(tx, request.EntityType, request.EntityID, finalApprovalStatus, actor); err != nil {
+			return err
+		}
+	}
+
 	if err = tx.Commit(); err != nil {
 		return err
 	}
 	tx = nil
 
 	if finalApprovalStatus != "" {
-		if err := s.syncDocumentStatus(request.EntityType, request.EntityID, request.Status, finalApprovalStatus, actor); err != nil {
-			return err
-		}
 		s.notifyApprovalChange(*request, finalApprovalStatus, actor)
 	}
 	return nil
@@ -1061,30 +1064,28 @@ func (s *ApprovalService) syncStockAdjustmentStatusTx(tx *sqlx.Tx, entityID int6
 	}
 
 	type stockAdjustmentPostingRow struct {
-		ID                 int64      `db:"id"`
-		AccountID          int64      `db:"account_id"`
-		TransactionDate    time.Time  `db:"transaction_date"`
-		ItemID             int64      `db:"item_id"`
-		ItemCode           string     `db:"item_code"`
-		ItemName           string     `db:"item_name"`
-		UOMID              *int64     `db:"uom_id"`
-		UOMCode            string     `db:"uom_code"`
-		UOMName            string     `db:"uom_name"`
-		CostCenterID       *int64     `db:"cost_center_id"`
-		CostCenterName     string     `db:"cost_center_name"`
-		LocationID         *int64     `db:"location_id"`
-		LocationName       string     `db:"location_name"`
-		QtyIn              float64    `db:"qty_in"`
-		QtyOut             float64    `db:"qty_out"`
-		UnitCost           float64    `db:"unit_cost"`
-		TotalCost          float64    `db:"total_cost"`
-		PostedAt           *time.Time `db:"posted_at"`
-		SourceEntityNumber string     `db:"source_entity_number"`
+		ID              int64      `db:"id"`
+		AccountID       int64      `db:"account_id"`
+		TransactionDate time.Time  `db:"transaction_date"`
+		ItemID          int64      `db:"item_id"`
+		ItemCode        string     `db:"item_code"`
+		ItemName        string     `db:"item_name"`
+		UOMID           *int64     `db:"uom_id"`
+		UOMCode         string     `db:"uom_code"`
+		UOMName         string     `db:"uom_name"`
+		CostCenterID    *int64     `db:"cost_center_id"`
+		CostCenterName  string     `db:"cost_center_name"`
+		LocationID      *int64     `db:"location_id"`
+		LocationName    string     `db:"location_name"`
+		QtyIn           float64    `db:"qty_in"`
+		QtyOut          float64    `db:"qty_out"`
+		TotalCost       float64    `db:"total_cost"`
+		PostedAt        *time.Time `db:"posted_at"`
 	}
 
 	var row stockAdjustmentPostingRow
 	if err := tx.Get(&row, `SELECT id, account_id, transaction_date, item_id, item_code, item_name, uom_id, uom_code, uom_name,
-			cost_center_id, cost_center_name, location_id, location_name, qty_in, qty_out, unit_cost, total_cost, posted_at, source_entity_number
+			cost_center_id, cost_center_name, location_id, location_name, qty_in, qty_out, total_cost, posted_at
 		FROM stock_transactions
 		WHERE id = $1 AND account_id = $2 AND source_entity_type = 'STOCK_ADJUSTMENT'
 		FOR UPDATE`, entityID, s.Auth.AccountID); err != nil {
@@ -1151,20 +1152,6 @@ func (s *ApprovalService) syncStockAdjustmentStatusTx(tx *sqlx.Tx, entityID int6
 		return err
 	}
 
-	if err := UpsertInventoryCostFromStockTx(tx, InventoryCostSource{
-		AccountID:          row.AccountID,
-		ItemID:             row.ItemID,
-		CostCenterID:       row.CostCenterID,
-		LocationID:         row.LocationID,
-		LastCost:           row.UnitCost,
-		SourceEntityType:   models.ApprovalEntityStockAdjustment,
-		SourceEntityID:     entityID,
-		SourceEntityNumber: row.SourceEntityNumber,
-		Actor:              actor,
-	}); err != nil {
-		return err
-	}
-
 	now := time.Now().UTC()
 	_, err := tx.Exec(`UPDATE stock_transactions
 		SET approval_status = $1, balance_qty = $2, posted_at = $3, posted_by = $4, updated_at = NOW(), updated_by = $4
@@ -1176,6 +1163,9 @@ func (s *ApprovalService) syncStockAdjustmentStatusTx(tx *sqlx.Tx, entityID int6
 func (s *ApprovalService) syncProcurementDocumentStatus(tableName string, entityID int64, approvalStatus string, actor string) error {
 	if tableName == "" {
 		return nil
+	}
+	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
+		return errors.New("goods receive approval requires inventory posting, which is not configured")
 	}
 	status := map[string]string{
 		models.ApprovalRequestStatusApproved: "Approved",
@@ -1196,15 +1186,15 @@ func (s *ApprovalService) syncProcurementDocumentStatus(tableName string, entity
 	if err != nil {
 		return err
 	}
-	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
-		return s.postGoodsReceiveInventory(entityID, actor)
-	}
 	return nil
 }
 
 func (s *ApprovalService) syncProcurementDocumentStatusTx(tx *sqlx.Tx, tableName string, entityID int64, approvalStatus string, actor string) error {
 	if tableName == "" {
 		return nil
+	}
+	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
+		return errors.New("goods receive approval requires inventory posting, which is not configured")
 	}
 	status := map[string]string{
 		models.ApprovalRequestStatusApproved: "Approved",
@@ -1224,9 +1214,6 @@ func (s *ApprovalService) syncProcurementDocumentStatusTx(tx *sqlx.Tx, tableName
 		status, approvedAt, actor, entityID, s.Auth.AccountID)
 	if err != nil {
 		return err
-	}
-	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
-		return s.postGoodsReceiveInventoryTx(tx, entityID, actor)
 	}
 	return nil
 }

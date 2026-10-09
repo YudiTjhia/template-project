@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -12,6 +13,7 @@ import (
 	"time"
 
 	"backend/shared/connections"
+	"backend/shared/encryption"
 	appmiddleware "backend/shared/middleware"
 	"backend/shared/models"
 	"backend/shared/routes"
@@ -45,11 +47,21 @@ func main() {
 	router.Use(func(next http.Handler) http.Handler {
 		return cors(next, allowedOrigin)
 	})
+	requestEncryption, err := newRequestEncryptionMiddlewareFromEnv()
+	if err != nil {
+		log.Fatalf("configure request encryption: %v", err)
+	}
+	if requestEncryption != nil {
+		router.Use(func(next http.Handler) http.Handler {
+			return requestEncryption.Wrap(next)
+		})
+		log.Printf("request encryption enabled; public key endpoint: %s", encryption.KeyEndpoint)
+	} else {
+		log.Printf("request encryption disabled; no private key configured")
+	}
 	router.Get("/healthz", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, http.StatusOK, apiResponse{Status: "ok"})
 	})
-	router.Post("/account/register", notImplemented)
-	router.Post("/auth/login", notImplemented)
 
 	authMiddleware := appmiddleware.NewAuthMiddleware(func(ctx context.Context, token string, _ *http.Request) (*appmiddleware.AuthIdentity, error) {
 		var session models.Auth
@@ -78,12 +90,36 @@ func main() {
 		}, nil
 	})
 	errorMiddleware := appmiddleware.NewErrorMiddleware("api")
-	userRoutes := routes.NewUserRoutes(services.NewUserService(db, models.Auth{}))
+	accountService := services.NewAccountService(db, models.Auth{})
+	userService := services.NewUserService(db, models.Auth{})
+	authService := services.NewAuthService(db)
+	notificationService := services.NewNotificationService(db, models.Auth{})
+	salesPartnerService := services.NewSalesPartnerService(db, models.Auth{})
+
+	if err := accountService.Migrate(); err != nil {
+		log.Fatalf("migrate accounts: %v", err)
+	}
+	userService.Migrate()
+	authService.Migrate()
+	notificationService.Migrate()
+	if err := salesPartnerService.Migrate(); err != nil {
+		log.Fatalf("migrate sales partners: %v", err)
+	}
+
+	accountRoutes := routes.NewAccountRoutes(accountService)
+	authRoutes := routes.NewAuthRoutes(accountService, authService)
+	authRoutes.RegisterPublic(router)
+	userRoutes := routes.NewUserRoutes(userService)
 	roleRoutes := routes.NewRoleRoutes(services.NewRoleService(db, models.Auth{}))
 	var routeRegistrationErr error
 	router.Group(func(protected chi.Router) {
 		protected.Use(func(next http.Handler) http.Handler { return errorMiddleware.Wrap(next) })
 		protected.Use(func(next http.Handler) http.Handler { return authMiddleware.Wrap(next) })
+		routeRegistrationErr = accountRoutes.RegisterProtected(protected)
+		if routeRegistrationErr != nil {
+			return
+		}
+		authRoutes.RegisterProtected(protected)
 		routeRegistrationErr = userRoutes.Register(protected)
 		if routeRegistrationErr != nil {
 			return
@@ -111,6 +147,41 @@ func main() {
 		log.Fatal(err)
 	}
 
+}
+
+func newRequestEncryptionMiddlewareFromEnv() (*encryption.EncryptionMiddleware, error) {
+	encodedKey := strings.TrimSpace(os.Getenv("REQUEST_ENCRYPTION_PRIVATE_KEY_B64"))
+	if encodedKey == "" {
+		customerKey := strings.TrimSpace(os.Getenv("CUSTOMER_ENCRYPTION_PRIVATE_KEY_B64"))
+		cashierKey := strings.TrimSpace(os.Getenv("CASHIER_ENCRYPTION_PRIVATE_KEY_B64"))
+		role := strings.ToLower(strings.TrimSpace(os.Getenv("REQUEST_ENCRYPTION_KEY_ROLE")))
+
+		switch role {
+		case "customer":
+			encodedKey = customerKey
+		case "cashier":
+			encodedKey = cashierKey
+		case "":
+			switch {
+			case customerKey != "" && cashierKey == "":
+				encodedKey = customerKey
+			case cashierKey != "" && customerKey == "":
+				encodedKey = cashierKey
+			case customerKey != "" && cashierKey != "":
+				return nil, errors.New("set REQUEST_ENCRYPTION_KEY_ROLE to customer or cashier when both role keys are configured")
+			}
+		default:
+			return nil, errors.New("REQUEST_ENCRYPTION_KEY_ROLE must be customer or cashier")
+		}
+		if role != "" && encodedKey == "" {
+			return nil, fmt.Errorf("encryption private key for role %q is not configured", role)
+		}
+	}
+
+	if encodedKey == "" {
+		return nil, nil
+	}
+	return encryption.NewFromBase64(encodedKey)
 }
 
 func cors(next http.Handler, allowedOrigin string) http.Handler {

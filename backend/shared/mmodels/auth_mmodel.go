@@ -211,6 +211,55 @@ func (m *AuthMModel) FindByToken() (*AuthMModel, error) {
 	return found, nil
 }
 
+// FindReusableSession returns the current, unexpired session for a customer-table user.
+func (m *AuthMModel) FindReusableSession() (*AuthMModel, error) {
+	if m == nil {
+		return nil, errors.New("auth metadata model is nil")
+	}
+	if m.DB == nil {
+		return nil, errors.New("auth metadata database is nil")
+	}
+	m.normalize()
+	if m.AccountID <= 0 {
+		return nil, errors.New("id akun wajib diisi")
+	}
+	if m.Email == "" {
+		return nil, errors.New("email wajib diisi")
+	}
+	found := &AuthMModel{MModel: m.MModel}
+	err := m.DB.GetContext(m.ContextOrBackground(), found, `
+		SELECT id, account_id, email, name, token, token_expired, is_expired, otp, otp_expired, created_at, updated_at
+		FROM auths
+		WHERE account_id = $1 AND LOWER(email) = LOWER($2)
+			AND is_expired = false
+			AND (token_expired IS NULL OR token_expired > NOW())
+		ORDER BY updated_at DESC NULLS LAST, id DESC LIMIT 1`, m.AccountID, m.Email)
+	return found, err
+}
+
+// CreateSessionTx expires the previous session when requested and inserts the new session atomically.
+func (m *AuthMModel) CreateSessionTx(tx *sqlx.Tx, expirePrevious bool) error {
+	if err := m.validateSession(); err != nil {
+		return err
+	}
+	if tx == nil {
+		return errors.New("auth transaction wajib diisi")
+	}
+	ctx := m.ContextOrBackground()
+	if expirePrevious {
+		if _, err := tx.ExecContext(ctx, `
+			UPDATE auths SET is_expired = true, token_expired = NOW(), updated_at = NOW()
+			WHERE account_id = $1 AND LOWER(email) = LOWER($2) AND is_expired = false`, m.AccountID, m.Email); err != nil {
+			return err
+		}
+	}
+	_, err := tx.ExecContext(ctx, `
+		INSERT INTO auths (account_id, email, name, token, token_expired, is_expired, otp, otp_expired)
+		VALUES ($1, $2, $3, $4, $5, false, '', NULL)`,
+		m.AccountID, m.Email, m.Name, m.Token, m.TokenExpired)
+	return err
+}
+
 func (m *AuthMModel) ExpireActiveByEmail() error {
 	if m == nil {
 		return errors.New("auth metadata model is nil")
@@ -297,6 +346,32 @@ func (m *AuthMModel) validateToken() error {
 	m.Token = strings.TrimSpace(m.Token)
 	if m.Token == "" {
 		return errors.New("token wajib diisi")
+	}
+	return nil
+}
+
+func (m *AuthMModel) validateSession() error {
+	if m == nil {
+		return errors.New("auth metadata model is nil")
+	}
+	if m.DB == nil {
+		return errors.New("auth metadata database is nil")
+	}
+	m.normalize()
+	if m.AccountID <= 0 {
+		return errors.New("id akun wajib diisi")
+	}
+	if m.Email == "" {
+		return errors.New("email wajib diisi")
+	}
+	if m.Name == "" {
+		return errors.New("nama wajib diisi")
+	}
+	if m.Token == "" {
+		return errors.New("token wajib diisi")
+	}
+	if m.TokenExpired == nil {
+		return errors.New("masa berlaku token wajib diisi")
 	}
 	return nil
 }
