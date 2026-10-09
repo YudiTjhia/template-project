@@ -29,6 +29,8 @@ export type EditComponentProps = {
   actionDirection?: 'row' | 'column';
   actionAlign?: 'left' | 'center' | 'right';
   contentMaxWidth?: number | string;
+  showActionButtons?: boolean;
+  showSubmitButton?: boolean;
 };
 
 export default function EditComponent({
@@ -52,6 +54,8 @@ export default function EditComponent({
   actionDirection = 'row',
   actionAlign = 'right',
   contentMaxWidth = 720,
+  showActionButtons = true,
+  showSubmitButton = true,
 }: EditComponentProps) {
   const [values, setValues] = useState<EditFieldsValues>(initialValues ?? {});
   const [recordId, setRecordId] = useState<string | number | undefined>(
@@ -72,7 +76,14 @@ export default function EditComponent({
   const handleSubmit = async (nextValues: EditFieldsValues, nextRecordId?: string | number) => {
     setValues(nextValues);
     if (nextRecordId !== undefined) setRecordId(nextRecordId);
-    await runAction(showSaveNew && !showUpdate ? onSaveNew : onUpdate);
+    const action = showSaveNew && !showUpdate ? onSaveNew : onUpdate;
+    if (!action || saving || loading) return;
+    setSaving(true);
+    try {
+      await action(nextValues, nextRecordId ?? recordId);
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -90,9 +101,10 @@ export default function EditComponent({
           loading={loading || saving}
           error={error}
           onSubmit={handleSubmit}
-          onCancel={onCancel}
+          onCancel={showCancel ? onCancel : undefined}
+          showSubmitButton={showSubmitButton}
         />
-        <EditActionButtons
+        {showActionButtons && <EditActionButtons
           showBack={false}
           showCancel={showCancel}
           showSaveNew={showSaveNew}
@@ -107,7 +119,7 @@ export default function EditComponent({
           direction={actionDirection}
           align={actionAlign}
           {...actionLabels}
-        />
+        />}
       </Stack>
     </Box>
   );

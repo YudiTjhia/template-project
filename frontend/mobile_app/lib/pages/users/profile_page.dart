@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 
-import '../models/profile_model.dart';
-import '../services/login_service.dart';
-import '../services/profile_service.dart';
-import '../shared/theme/app_theme.dart';
-import 'login_page.dart';
+import '../../services/login_service.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/msg_box.dart';
+import '../login/login_page.dart';
+
+import 'package:mobile_app/models/profile_model.dart';
+import 'package:mobile_app/services/profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
   const ProfilePage({super.key});
@@ -19,6 +21,7 @@ class _ProfilePageState extends State<ProfilePage> {
   String? _errorMessage;
   bool _isLoading = true;
   bool _isLoggingOut = false;
+  bool _isSavingProfile = false;
 
   @override
   void initState() {
@@ -74,6 +77,109 @@ class _ProfilePageState extends State<ProfilePage> {
       MaterialPageRoute<void>(builder: (_) => const LoginPage()),
       (_) => false,
     );
+  }
+
+  Future<void> _editProfile() async {
+    final profile = _profile;
+    if (profile == null || _isSavingProfile) return;
+
+    final formKey = GlobalKey<FormState>();
+    final usernameController = TextEditingController(text: profile.username);
+    final emailController = TextEditingController(text: profile.email);
+    final shouldSave = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Edit profil'),
+        content: Form(
+          key: formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextFormField(
+                controller: usernameController,
+                autofocus: true,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(labelText: 'Username'),
+                validator: (value) {
+                  if (value == null || value.trim().isEmpty) {
+                    return 'Username wajib diisi';
+                  }
+                  if (value.trim().length < 3) {
+                    return 'Username minimal 3 karakter';
+                  }
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: emailController,
+                keyboardType: TextInputType.emailAddress,
+                textInputAction: TextInputAction.done,
+                decoration: const InputDecoration(labelText: 'Email'),
+                validator: (value) {
+                  final email = value?.trim() ?? '';
+                  if (email.isEmpty) return 'Email wajib diisi';
+                  if (!RegExp(
+                    r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$',
+                    caseSensitive: false,
+                  ).hasMatch(email)) {
+                    return 'Format email tidak valid';
+                  }
+                  return null;
+                },
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            onPressed: () {
+              if (formKey.currentState?.validate() ?? false) {
+                Navigator.pop(dialogContext, true);
+              }
+            },
+            child: const Text('Simpan'),
+          ),
+        ],
+      ),
+    );
+
+    if (shouldSave != true || !mounted) {
+      usernameController.dispose();
+      emailController.dispose();
+      return;
+    }
+
+    setState(() => _isSavingProfile = true);
+    try {
+      await _profileService.updateCurrentUser(
+        username: usernameController.text,
+        email: emailController.text,
+      );
+      await _loadProfile();
+      if (!mounted) return;
+      await MsgBox.show(
+        context,
+        title: 'Profil diperbarui',
+        message: 'Perubahan profil berhasil disimpan.',
+      );
+    } on ProfileServiceException catch (error) {
+      if (!mounted) return;
+      await MsgBox.show(
+        context,
+        title: 'Gagal memperbarui profil',
+        message: error.message,
+        buttonText: 'Tutup',
+      );
+    } finally {
+      usernameController.dispose();
+      emailController.dispose();
+      if (mounted) setState(() => _isSavingProfile = false);
+    }
   }
 
   @override
@@ -155,6 +261,17 @@ class _ProfilePageState extends State<ProfilePage> {
             _ProfileField(label: 'Username', value: profile.username),
             const Divider(height: 24),
             _ProfileField(label: 'Email', value: profile.email),
+            const SizedBox(height: 16),
+            OutlinedButton.icon(
+              onPressed: _isSavingProfile ? null : _editProfile,
+              icon: _isSavingProfile
+                  ? const SizedBox.square(
+                      dimension: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.edit_outlined),
+              label: const Text('Edit profil'),
+            ),
           ],
         ),
       ),

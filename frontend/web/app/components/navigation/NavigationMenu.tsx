@@ -17,6 +17,7 @@ import {
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import NotificationsActiveOutlinedIcon from '@mui/icons-material/NotificationsActiveOutlined';
 import PeopleOutlineIcon from '@mui/icons-material/PeopleOutline';
 import SecurityOutlinedIcon from '@mui/icons-material/SecurityOutlined';
 import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
@@ -28,6 +29,7 @@ import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { usePathname, useRouter } from 'next/navigation';
+import { getSubAppUrl, resolveSubAppType, type SubAppType } from '@/app/helpers/subApp';
 
 export type NavigationMenuItem = {
   label: string;
@@ -43,10 +45,12 @@ export type NavigationMenuProps = {
   width?: number;
   onNavigate?: (item: NavigationMenuItem) => void;
   onLogout?: () => void;
+  subAppType?: SubAppType;
 };
 
 const defaultItems: NavigationMenuItem[] = [
   { label: 'Dashboard', href: '/', icon: <DashboardOutlinedIcon /> },
+  { label: 'Notifications', href: '/notifications', icon: <NotificationsActiveOutlinedIcon /> },
   {
     label: 'User Management',
     icon: <PeopleOutlineIcon />,
@@ -73,6 +77,7 @@ export default function NavigationMenu({
   width = 264,
   onNavigate,
   onLogout,
+  subAppType = resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE),
 }: NavigationMenuProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -85,16 +90,16 @@ export default function NavigationMenu({
     onNavigate?.(item);
     if (item.action === 'logout') {
       if (onLogout) onLogout();
-      else router.push(item.href ?? '/logout');
+      else router.push(getSubAppUrl(subAppType, item.href ?? '/logout'));
       setMobileOpen(false);
       return;
     }
-    if (item.href) router.push(item.href);
+    if (item.href) router.push(getSubAppUrl(subAppType, item.href));
     setMobileOpen(false);
   };
 
   const isSelected = (item: NavigationMenuItem) =>
-    Boolean(item.href && (pathname === item.href || (item.href !== '/' && pathname.startsWith(`${item.href}/`))));
+    Boolean(item.href && (pathname === getSubAppUrl(subAppType, item.href) || (item.href !== '/' && pathname.startsWith(`${getSubAppUrl(subAppType, item.href)}/`))));
 
   const hasSelectedChild = (item: NavigationMenuItem) =>
     item.children?.some((child) => isSelected(child)) ?? false;

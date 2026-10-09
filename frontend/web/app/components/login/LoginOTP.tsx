@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Link as MuiLink, Stack, Typography } from '@mui/material';
 import EditCenter from '../edit/EditCenter';
 import type { EditFieldMetadata, EditFieldsValues } from '../edit/EditFields';
+import { OTPVerification } from '@/app/components/otp';
 
 export type LoginOTPProps = {
   onRequestOTP: (identifier: string) => void | Promise<void>;
@@ -14,33 +15,15 @@ export type LoginOTPProps = {
   error?: string;
 };
 
-type LoginOTPStep = 'identifier' | 'otp';
-
-const identifierFields: EditFieldMetadata[] = [
-  {
-    id: 'identifier',
-    field: 'identifier',
-    label: 'Email atau username',
-    type: 'text',
-    placeholder: 'Masukkan email atau username',
-    required: true,
-    value: '',
-  },
-];
-
-const otpFields: EditFieldMetadata[] = [
-  {
-    id: 'otp',
-    field: 'otp',
-    label: 'Kode OTP',
-    type: 'text',
-    placeholder: 'Masukkan 6 digit OTP',
-    helperText: 'Kode OTP dikirim ke email akun Anda.',
-    required: true,
-    pattern: '^[0-9]{6}$',
-    value: '',
-  },
-];
+const identifierFields: EditFieldMetadata[] = [{
+  id: 'identifier',
+  field: 'identifier',
+  label: 'Email atau username',
+  type: 'text',
+  placeholder: 'Masukkan email atau username',
+  required: true,
+  value: '',
+}];
 
 export default function LoginOTP({
   onRequestOTP,
@@ -50,7 +33,6 @@ export default function LoginOTP({
   resending = false,
   error,
 }: LoginOTPProps) {
-  const [step, setStep] = useState<LoginOTPStep>('identifier');
   const [identifier, setIdentifier] = useState('');
   const [actionError, setActionError] = useState<string>();
 
@@ -60,29 +42,51 @@ export default function LoginOTP({
     await onRequestOTP(nextIdentifier);
     setIdentifier(nextIdentifier);
     setActionError(undefined);
-    setStep('otp');
-  };
-
-  const handleVerify = async (values: EditFieldsValues) => {
-    const otp = String(values.otp ?? '').trim();
-    if (!/^\d{6}$/.test(otp)) {
-      const message = 'OTP harus terdiri dari 6 angka.';
-      throw new Error(message);
-    }
-    setActionError(undefined);
-    await onVerifyOTP(identifier, otp);
   };
 
   const handleResend = async () => {
+    if (!identifier) return;
     setActionError(undefined);
     try {
       await onRequestOTP(identifier);
     } catch (caughtError) {
       setActionError(caughtError instanceof Error ? caughtError.message : 'Gagal mengirim ulang OTP.');
+      throw caughtError;
     }
   };
 
-  return step === 'identifier' ? (
+  if (identifier) {
+    return (
+      <OTPVerification
+        title="Verifikasi OTP login"
+        description={`Masukkan kode OTP untuk ${identifier}.`}
+        helperText="Kode OTP dikirim ke email akun Anda."
+        onVerify={(otp) => onVerifyOTP(identifier, otp)}
+        onResend={handleResend}
+        resending={resending}
+        loading={loading}
+        error={actionError ?? error}
+        afterActions={(
+          <>
+            <Button
+              size="small"
+              onClick={() => { setIdentifier(''); setActionError(undefined); }}
+              disabled={loading || resending}
+            >
+              Ganti email atau username
+            </Button>
+            {onBackToLogin && (
+              <MuiLink component="button" type="button" variant="body2" onClick={onBackToLogin} disabled={loading || resending}>
+                Kembali ke login
+              </MuiLink>
+            )}
+          </>
+        )}
+      />
+    );
+  }
+
+  return (
     <EditCenter
       title="Masuk dengan OTP"
       description="Masukkan email atau username untuk menerima kode OTP."
@@ -99,31 +103,6 @@ export default function LoginOTP({
           </MuiLink>
         </Stack>
       ) : undefined}
-    />
-  ) : (
-    <EditCenter
-      title="Verifikasi OTP login"
-      description={`Masukkan kode OTP untuk ${identifier}.`}
-      fields={otpFields}
-      submitLabel="Verifikasi OTP"
-      loading={loading || resending}
-      error={actionError ?? error}
-      onSubmit={handleVerify}
-      actions={(
-        <Stack spacing={1} alignItems="center">
-          <Button onClick={handleResend} disabled={loading || resending}>
-            {resending ? 'Mengirim ulang…' : 'Kirim ulang OTP'}
-          </Button>
-          <Button onClick={() => setStep('identifier')} disabled={loading || resending}>
-            Ganti email atau username
-          </Button>
-          {onBackToLogin && (
-            <MuiLink component="button" type="button" variant="body2" onClick={onBackToLogin} disabled={loading || resending}>
-              Kembali ke login
-            </MuiLink>
-          )}
-        </Stack>
-      )}
     />
   );
 }

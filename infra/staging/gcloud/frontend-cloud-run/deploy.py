@@ -84,6 +84,13 @@ def deploy(env):
         f'_NEXT_PUBLIC_API_BASE_URL={api_url}',
         f'_NEXT_PUBLIC_ACCOUNT_REGISTER_PATH={env.get("NEXT_PUBLIC_ACCOUNT_REGISTER_PATH", "/auth/accounts/register")}',
         f'_NEXT_PUBLIC_LOGIN_PATH={env.get("NEXT_PUBLIC_LOGIN_PATH", "/auth/login")}',
+        f'_NEXT_PUBLIC_FIREBASE_API_KEY={env.get("NEXT_PUBLIC_FIREBASE_API_KEY", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN={env.get("NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_PROJECT_ID={env.get("NEXT_PUBLIC_FIREBASE_PROJECT_ID", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET={env.get("NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID={env.get("NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_APP_ID={env.get("NEXT_PUBLIC_FIREBASE_APP_ID", "")}',
+        f'_NEXT_PUBLIC_FIREBASE_VAPID_KEY={env.get("NEXT_PUBLIC_FIREBASE_VAPID_KEY", "")}',
     ])
     run(project, 'builds', 'submit', str(FRONTEND), '--region', region,
         '--config', str(HERE / 'cloudbuild.yaml'), '--ignore-file', str(HERE / '.gcloudignore'),

@@ -111,6 +111,52 @@ func (s *UserService) UpdateUser(user models.User) error {
 	return s.syncSubscriptionForAccount(accountID, "sync subscription after user update")
 }
 
+func (s *UserService) UpdateCurrentProfile(id int64, username, email string) error {
+	username = strings.TrimSpace(username)
+	email = strings.ToLower(strings.TrimSpace(email))
+	currentEmail := strings.ToLower(strings.TrimSpace(s.Auth.Email))
+	if id <= 0 || currentEmail == "" {
+		return errors.New("sesi user tidak valid")
+	}
+	if username == "" {
+		return errors.New("username wajib diisi")
+	}
+	if email == "" || !strings.Contains(email, "@") {
+		return errors.New("email tidak valid")
+	}
+
+	tx, err := s.DB.Beginx()
+	if err != nil {
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	result, err := tx.Exec(`
+		UPDATE users
+		SET username = $1, user_email = $2, updated_at = NOW(), updated_by = $3
+		WHERE id = $4 AND account_id = $5 AND LOWER(user_email) = LOWER($6)`,
+		username, email, currentEmail, id, s.Auth.AccountID, currentEmail,
+	)
+	if err != nil {
+		return err
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return err
+	}
+	if affected == 0 {
+		return errors.New("profil user tidak ditemukan atau bukan milik sesi ini")
+	}
+	if _, err := tx.Exec(`
+		UPDATE auths SET email = $1, updated_at = NOW()
+		WHERE account_id = $2 AND LOWER(email) = LOWER($3)`,
+		email, s.Auth.AccountID, currentEmail,
+	); err != nil {
+		return err
+	}
+	return tx.Commit()
+}
+
 func (s *UserService) ActivateUser(id int64) error {
 	if id <= 0 {
 		return errors.New("id user tidak valid")

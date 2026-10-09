@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../models/register_model.dart';
-import '../services/register_service.dart';
-import '../shared/widgets/msg_box.dart';
+import '../../models/register_model.dart';
+import '../../services/register_service.dart';
+import '../../shared/widgets/confirm_box.dart';
+import '../../shared/widgets/msg_box.dart';
 
 const _registerBackground = Color(0xFFB9E3FF);
 
@@ -65,17 +66,29 @@ class _RegisterPageState extends State<RegisterPage> {
       if (!mounted) return;
 
       if (response.success) {
+        final goToLogin = await ConfirmBox.show(
+          context,
+          title: 'Registrasi berhasil',
+          message: 'Akun berhasil dibuat. Kembali ke halaman login?',
+          confirmText: 'Ke Login',
+        );
+        if (goToLogin && mounted) Navigator.pop(context, response);
+      } else {
         await MsgBox.show(
           context,
-          title: 'Registrasi Berhasil',
-          message: 'Pelanggan berhasil terdaftar',
+          title: 'Registrasi gagal',
+          message: response.message,
+          buttonText: 'Tutup',
         );
-        if (!mounted) return;
-        Navigator.pop(context, response);
-      } else {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(response.message)));
       }
+    } on Exception catch (error) {
+      if (!mounted) return;
+      await MsgBox.show(
+        context,
+        title: 'Registrasi gagal',
+        message: 'Terjadi kesalahan: $error',
+        buttonText: 'Tutup',
+      );
     } finally {
       if (mounted) setState(() => isLoading = false);
     }
@@ -165,7 +178,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       return 'Email wajib diisi';
                     }
 
-                    if (!value.contains('@')) {
+                    if (!RegExp(
+                      r'^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$',
+                      caseSensitive: false,
+                    ).hasMatch(value.trim())) {
                       return 'Format email tidak valid';
                     }
 
@@ -191,7 +207,11 @@ class _RegisterPageState extends State<RegisterPage> {
                       return 'Nomor HP wajib diisi';
                     }
 
-                    if (value.trim().length < 9) {
+                    final normalized = value.trim().replaceAll(
+                      RegExp(r'[\s()-]'),
+                      '',
+                    );
+                    if (!RegExp(r'^\+?[0-9]{9,15}$').hasMatch(normalized)) {
                       return 'Nomor HP tidak valid';
                     }
 

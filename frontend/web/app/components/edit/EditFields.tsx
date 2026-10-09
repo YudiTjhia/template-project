@@ -30,6 +30,7 @@ export type EditFieldType =
   | 'time'
   | 'textarea'
   | 'select'
+  | 'select-multiple'
   | 'checkbox';
 
 export type EditFieldOption = {
@@ -75,6 +76,7 @@ export type EditFieldsProps = {
   error?: string;
   onSubmit: (values: EditFieldsValues, recordId?: string | number) => void | Promise<void>;
   onCancel?: () => void;
+  showSubmitButton?: boolean;
 };
 
 function getInitialValues(fields: EditFieldMetadata[], suppliedValues: EditFieldsValues = {}) {
@@ -95,15 +97,23 @@ export default function EditFields({
   error,
   onSubmit,
   onCancel,
+  showSubmitButton = true,
 }: EditFieldsProps) {
   const initialRecordId = fields.find((field) => field.recordId !== undefined)?.recordId;
   const [values, setValues] = useState<EditFieldsValues>(() => getInitialValues(fields, initialValues));
   const [submitError, setSubmitError] = useState<string>();
   const inputIdPrefix = useMemo(() => `edit-fields-${Math.random().toString(36).slice(2, 9)}`, []);
 
+  const resetKey = JSON.stringify({
+    fields: fields.map(({ id, value, recordId }) => ({ id, value, recordId })),
+    initialValues,
+  });
+
   useEffect(() => {
     setValues(getInitialValues(fields, initialValues));
-  }, [fields, initialValues]);
+  // Only reset when the initial values change, not whenever a parent recreates metadata.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [resetKey]);
 
   const setValue = (id: string, value: unknown) => {
     setValues((current) => ({ ...current, [id]: value }));
@@ -143,7 +153,7 @@ export default function EditFields({
       );
     }
 
-    if (metadata.type === 'select') {
+    if (metadata.type === 'select' || metadata.type === 'select-multiple') {
       const labelId = `${inputId}-label`;
       return (
         <FormControl key={metadata.id} fullWidth required={metadata.required} disabled={metadata.disabled}>
@@ -152,7 +162,8 @@ export default function EditFields({
             id={inputId}
             labelId={labelId}
             label={metadata.label}
-            value={value ?? ''}
+            multiple={metadata.type === 'select-multiple'}
+            value={metadata.type === 'select-multiple' ? (Array.isArray(value) ? value : []) : value ?? ''}
             onChange={(event) => setValue(metadata.id, event.target.value)}
           >
             {(metadata.options ?? []).map((option) => (
@@ -209,9 +220,9 @@ export default function EditFields({
           {fields.map(renderField)}
           <Stack direction="row" justifyContent="flex-end" spacing={1.5}>
             {onCancel && <Button onClick={onCancel} disabled={loading}>{cancelLabel}</Button>}
-            <Button type="submit" variant="contained" disabled={loading}>
+            {showSubmitButton && <Button type="submit" variant="contained" disabled={loading}>
               {loading ? 'Menyimpan…' : submitLabel}
-            </Button>
+            </Button>}
           </Stack>
         </Stack>
       </Box>

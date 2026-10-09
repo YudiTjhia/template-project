@@ -337,15 +337,12 @@ func (m User) Update() error {
 		return errors.New("mobilephone user wajib diisi")
 	}
 
-	if strings.TrimSpace(m.UserPassword) == "" {
-		return errors.New("password user wajib diisi")
-	}
 	if !helpers.IsCredentialHash(m.PIN) {
 		if err := validateUserPINPair(m.PIN, m.ConfirmPIN); err != nil {
 			return err
 		}
 	}
-	if !helpers.IsCredentialHash(m.UserPassword) {
+	if m.UserPassword != "" && !helpers.IsCredentialHash(m.UserPassword) {
 		m.UserPassword, err = helpers.HashCredential(m.UserPassword)
 		if err != nil {
 			return err
@@ -390,7 +387,7 @@ func (m User) Update() error {
 	SET user_email = $1,
 		mobilephone = $2,
 		user_password = CASE WHEN $3 = '' THEN user_password ELSE $3 END,
-		pin = $4,
+		pin = CASE WHEN $4 = '' THEN pin ELSE $4 END,
 		user_type = $5,
 		login_type = $6,
 		user_roles = $7,

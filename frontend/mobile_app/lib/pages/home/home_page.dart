@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 
-import '../shared/navigation/page_navigation.dart';
-import '../shared/theme/app_theme.dart';
-import '../shared/widgets/app_bottom_menu.dart';
-import '../shared/widgets/bottom_menu.dart';
+import '../../shared/navigation/page_navigation.dart';
+import '../../shared/theme/app_theme.dart';
+import '../../shared/widgets/app_bottom_menu.dart';
+import '../../shared/widgets/bottom_menu.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({

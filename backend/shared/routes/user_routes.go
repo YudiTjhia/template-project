@@ -15,6 +15,11 @@ type UserRoutes struct {
 	Service *services.UserService
 }
 
+type userRequest struct {
+	models.User
+	Password string `json:"user_password"`
+}
+
 func NewUserRoutes(service *services.UserService) *UserRoutes {
 	return &UserRoutes{Service: service}
 }
@@ -98,11 +103,13 @@ func (r *UserRoutes) handleUserCreate(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	var payload models.User
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+	var request userRequest
+	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 		writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
 		return
 	}
+	payload := request.User
+	payload.UserPassword = request.Password
 
 	id, err := service.Create(payload)
 	if err != nil {
@@ -149,6 +156,8 @@ func (r *UserRoutes) handleUserByID(w http.ResponseWriter, req *http.Request) {
 
 	if len(parts) > 1 {
 		switch parts[1] {
+		case "profile":
+			r.handleUserProfileUpdate(w, req, id, service)
 		case "activate":
 			r.handleUserActivate(w, req, id)
 		default:
@@ -166,11 +175,13 @@ func (r *UserRoutes) handleUserByID(w http.ResponseWriter, req *http.Request) {
 		}
 		writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": user})
 	case http.MethodPut:
-		var payload models.User
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		var request userRequest
+		if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
 			writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
 			return
 		}
+		payload := request.User
+		payload.UserPassword = request.Password
 		payload.ID = id
 		if err := service.Update(payload); err != nil {
 			writeUserJSONError(w, http.StatusBadRequest, err.Error())
@@ -186,6 +197,33 @@ func (r *UserRoutes) handleUserByID(w http.ResponseWriter, req *http.Request) {
 	default:
 		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+}
+
+func (r *UserRoutes) handleUserProfileUpdate(
+	w http.ResponseWriter,
+	req *http.Request,
+	id int64,
+	service *services.UserService,
+) {
+	if req.Method != http.MethodPatch {
+		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+		return
+	}
+
+	var payload struct {
+		Username string `json:"username"`
+		Email    string `json:"email"`
+	}
+	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+		writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
+		return
+	}
+
+	if err := service.UpdateCurrentProfile(id, payload.Username, payload.Email); err != nil {
+		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	writeUserJSON(w, http.StatusOK, map[string]interface{}{"message": "profile updated"})
 }
 
 func (r *UserRoutes) handleUserActivate(w http.ResponseWriter, req *http.Request, id int64) {

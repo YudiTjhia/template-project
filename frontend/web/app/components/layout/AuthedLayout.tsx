@@ -73,7 +73,7 @@ export default function AuthedLayout({
   }
 
   const navigation = showNavigation ? (
-    <NavigationMenu side={navigationSide} onLogout={onLogout} />
+    <NavigationMenu side={navigationSide} onLogout={onLogout} subAppType={subAppType} />
   ) : null;
 
   return (

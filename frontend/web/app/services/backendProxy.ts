@@ -7,29 +7,39 @@ export async function proxyBackendRequest(request: Request, backendPath: string)
     return NextResponse.json({ message: 'Backend API URL belum dikonfigurasi.' }, { status: 503 });
   }
 
-  let body: string;
+  let body: string | undefined;
   let subAppType: string | undefined;
-  try {
-    const payload: unknown = await request.json();
-    body = JSON.stringify(payload);
-    if (payload && typeof payload === 'object' && 'sub_app_type' in payload) {
-      const value = (payload as { sub_app_type?: unknown }).sub_app_type;
-      if (value === 'admin' || value === 'customer') subAppType = value;
+  if (!['GET', 'HEAD'].includes(request.method)) {
+    const rawBody = await request.text();
+    if (rawBody) {
+      body = rawBody;
+      if (request.headers.get('content-type')?.includes('application/json')) {
+        try {
+          const payload: unknown = JSON.parse(rawBody);
+          if (payload && typeof payload === 'object' && 'sub_app_type' in payload) {
+            const value = (payload as { sub_app_type?: unknown }).sub_app_type;
+            if (value === 'admin' || value === 'customer') subAppType = value;
+          }
+        } catch {
+          return NextResponse.json({ message: 'Request body harus berupa JSON.' }, { status: 400 });
+        }
+      }
     }
-  } catch {
-    return NextResponse.json({ message: 'Request body harus berupa JSON.' }, { status: 400 });
   }
 
-  const url = `${backendBaseUrl.replace(/\/$/, '')}/${backendPath.replace(/^\//, '')}`;
+  const incomingUrl = new URL(request.url);
+  const queryString = incomingUrl.search;
+  const url = `${backendBaseUrl.replace(/\/$/, '')}/${backendPath.replace(/^\//, '')}${queryString}`;
   try {
     const backendResponse = await fetch(url, {
-      method: 'POST',
+      method: request.method,
       headers: {
-        'Content-Type': 'application/json',
         Accept: 'application/json',
+        ...(body !== undefined ? { 'Content-Type': request.headers.get('content-type') ?? 'application/json' } : {}),
+        ...(request.headers.get('authorization') ? { Authorization: request.headers.get('authorization')! } : {}),
         'X-Sub-App-Type': subAppType ?? process.env.NEXT_PUBLIC_SUB_APP_TYPE ?? 'admin',
       },
-      body,
+      ...(body !== undefined ? { body } : {}),
       cache: 'no-store',
     });
     const responseBody = await backendResponse.text();

@@ -2,10 +2,10 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
-import 'home_page.dart';
+import '../home/home_page.dart';
 import 'login_page.dart';
-import '../services/login_service.dart';
-import '../shared/helpers/session_helper.dart';
+import '../../services/login_service.dart';
+import '../../shared/helpers/session_helper.dart';
 
 const _splashBackground = Color(0xFFB9E3FF);
 const _splashForeground = Color(0xFF12324A);

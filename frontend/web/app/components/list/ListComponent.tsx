@@ -4,6 +4,7 @@ import { useMemo, useState } from 'react';
 import AddIcon from '@mui/icons-material/Add';
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import {
   Box,
   Button,
@@ -59,6 +60,7 @@ export type ListComponentProps<T extends ListRow> = {
   getRowLabel?: (row: T) => string;
   onAdd?: () => void;
   onEdit?: (row: T) => void;
+  onView?: (row: T) => void;
   onDelete?: (row: T) => void;
 };
 
@@ -94,6 +96,7 @@ export default function ListComponent<T extends ListRow>({
   getRowLabel = (row) => String(row.id),
   onAdd,
   onEdit,
+  onView,
   onDelete,
 }: ListComponentProps<T>) {
   const [query, setQuery] = useState('');
@@ -130,7 +133,7 @@ export default function ListComponent<T extends ListRow>({
   }, [rows, query, filterValues, filters, searchableColumns, sortField, sortDirection]);
 
   const visibleRows = filteredRows.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
-  const hasActions = Boolean(onEdit || onDelete);
+  const hasActions = Boolean(onView || onEdit || onDelete);
   const columnCount = columns.length + Number(hasActions);
 
   return (
@@ -193,6 +196,7 @@ export default function ListComponent<T extends ListRow>({
                     {hasActions && (
                       <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                         {onEdit && <IconButton aria-label={`Edit ${rowLabel}`} onClick={() => onEdit(row)} size="small"><EditOutlinedIcon fontSize="small" /></IconButton>}
+                        {onView && <IconButton aria-label={`Lihat ${rowLabel}`} onClick={() => onView(row)} size="small"><VisibilityOutlinedIcon fontSize="small" /></IconButton>}
                         {onDelete && <IconButton aria-label={`Hapus ${rowLabel}`} onClick={() => onDelete(row)} size="small" color="error"><DeleteOutlineIcon fontSize="small" /></IconButton>}
                       </TableCell>
                     )}
