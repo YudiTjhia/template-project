@@ -1,0 +1,15 @@
+.env
+.env.*
+**/.env
+**/.env.*
+**/.envrc
+*.pem
+*.key
+*.p12
+*.pfx
+*service-account*.json
+*credentials*.json
+**/*service-account*.json
+**/*credentials*.json
+secrets/
+**/secrets/

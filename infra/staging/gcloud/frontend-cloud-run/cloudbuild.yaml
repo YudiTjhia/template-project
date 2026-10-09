@@ -1,0 +1,21 @@
+steps:
+  - name: gcr.io/cloud-builders/docker
+    args:
+      - build
+      - -t
+      - '${_IMAGE}'
+      - --build-arg
+      - 'SUB_APP_TYPE=${_SUB_APP_TYPE}'
+      - --build-arg
+      - 'ADMIN_API_BASE_URL=${_ADMIN_API_BASE_URL}'
+      - --build-arg
+      - 'CUSTOMER_API_BASE_URL=${_CUSTOMER_API_BASE_URL}'
+      - --build-arg
+      - 'NEXT_PUBLIC_API_BASE_URL=${_NEXT_PUBLIC_API_BASE_URL}'
+      - --build-arg
+      - 'NEXT_PUBLIC_ACCOUNT_REGISTER_PATH=${_NEXT_PUBLIC_ACCOUNT_REGISTER_PATH}'
+      - --build-arg
+      - 'NEXT_PUBLIC_LOGIN_PATH=${_NEXT_PUBLIC_LOGIN_PATH}'
+      - .
+images: ['${_IMAGE}']
+timeout: 900s

@@ -1,0 +1,25 @@
+name: template-project-dev-frontend
+
+services:
+  frontend:
+    build:
+      context: ../../../frontend/web
+      dockerfile: Dockerfile
+      args:
+        SUB_APP_TYPE: ${SUB_APP_TYPE:-admin}
+        ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://host.docker.internal:31007}
+        CUSTOMER_API_BASE_URL: ${CUSTOMER_API_BASE_URL:-http://host.docker.internal:31007}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://host.docker.internal:31007}
+        NEXT_PUBLIC_ACCOUNT_REGISTER_PATH: ${NEXT_PUBLIC_ACCOUNT_REGISTER_PATH:-/auth/accounts/register}
+        NEXT_PUBLIC_LOGIN_PATH: ${NEXT_PUBLIC_LOGIN_PATH:-/auth/login}
+    image: template-project:dev
+    container_name: template-project-frontend-dev
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${FRONTEND_PORT:-31006}:3000"
+    restart: unless-stopped

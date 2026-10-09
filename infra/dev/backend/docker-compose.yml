@@ -1,0 +1,24 @@
+name: template-project-dev-backend
+
+services:
+  backend:
+    build:
+      context: ../../../backend
+      dockerfile: Dockerfile
+    image: template-project-backend:dev
+    container_name: template-project-backend-dev
+    environment:
+      PORT: 8080
+      CORS_ALLOW_ORIGIN: ${BACKEND_CORS_ALLOW_ORIGIN:-http://localhost:31006}
+      MASTER_DB_DSN: ${MASTER_DB_DSN:?Set MASTER_DB_DSN in infra/dev/backend/.env}
+      TR_DB_DSN: ${TR_DB_DSN:?Set TR_DB_DSN in infra/dev/backend/.env}
+    ports:
+      - "${BACKEND_PORT:-31007}:8080"
+    restart: unless-stopped
+    networks:
+      - template_web_dev
+
+networks:
+  template_web_dev:
+    name: template_web_dev
+    external: true

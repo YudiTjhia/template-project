@@ -1,0 +1,25 @@
+name: template-project-staging-frontend
+
+services:
+  frontend:
+    build:
+      context: ../../../../frontend/web
+      dockerfile: Dockerfile
+      args:
+        SUB_APP_TYPE: ${SUB_APP_TYPE:-admin}
+        ADMIN_API_BASE_URL: ${ADMIN_API_BASE_URL:-http://host.docker.internal:32007}
+        CUSTOMER_API_BASE_URL: ${CUSTOMER_API_BASE_URL:-http://host.docker.internal:32007}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL:-http://host.docker.internal:32007}
+        NEXT_PUBLIC_ACCOUNT_REGISTER_PATH: ${NEXT_PUBLIC_ACCOUNT_REGISTER_PATH:-/auth/accounts/register}
+        NEXT_PUBLIC_LOGIN_PATH: ${NEXT_PUBLIC_LOGIN_PATH:-/auth/login}
+    image: ${FRONTEND_IMAGE:-template-project:staging}
+    container_name: template-project-frontend-staging
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${FRONTEND_PORT:-32006}:3000"
+    restart: unless-stopped

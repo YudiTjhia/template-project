@@ -1,0 +1,24 @@
+name: template-project-staging-backend
+
+services:
+  backend:
+    build:
+      context: ../../../../backend
+      dockerfile: Dockerfile
+    image: ${BACKEND_IMAGE:-template-project-backend:staging}
+    container_name: template-project-backend-staging
+    environment:
+      PORT: 8080
+      CORS_ALLOW_ORIGIN: ${BACKEND_CORS_ALLOW_ORIGIN:-*}
+      MASTER_DB_DSN: ${MASTER_DB_DSN:?Set MASTER_DB_DSN in infra/staging/vm/backend/.env}
+      TR_DB_DSN: ${TR_DB_DSN:?Set TR_DB_DSN in infra/staging/vm/backend/.env}
+    ports:
+      - "${BACKEND_PORT:-32007}:8080"
+    restart: unless-stopped
+    networks:
+      - template_web_staging
+
+networks:
+  template_web_staging:
+    name: template_web_staging
+    external: true
