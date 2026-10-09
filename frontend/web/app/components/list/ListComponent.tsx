@@ -137,7 +137,7 @@ export default function ListComponent<T extends ListRow>({
   const columnCount = columns.length + Number(hasActions);
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 4 } }}>
+    <Box sx={{ width: '100%', maxWidth: 'none', mx: 0, p: { xs: 2, md: 4 } }}>
       <PageTitle
         title={title}
         subtitle={description}

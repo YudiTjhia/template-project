@@ -13,7 +13,7 @@ export default function AuthPagePanel({ children }: { children: ReactNode }) {
         p: { xs: 2, sm: 3 },
         bgcolor: 'common.white',
         borderRadius: 3,
-        boxShadow: '0 12px 32px rgba(8, 47, 96, 0.2)',
+        // boxShadow: '0 12px 32px rgba(8, 47, 96, 0.2)',
       }}
     >
       {children}

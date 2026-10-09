@@ -1,6 +1,10 @@
 package services_test
 
 import (
+	"bufio"
+	"fmt"
+	"net"
+	"strings"
 	"testing"
 	"time"
 
@@ -25,6 +29,126 @@ func newRealAccountService(t *testing.T) (*services.AccountService, func()) {
 	}
 
 	return service, cleanup
+}
+
+func startSMTPTestServer(t *testing.T) (int, <-chan string) {
+	t.Helper()
+
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("start SMTP test server: %v", err)
+	}
+	t.Cleanup(func() { _ = listener.Close() })
+
+	message := make(chan string, 1)
+	go func() {
+		conn, err := listener.Accept()
+		if err != nil {
+			return
+		}
+		defer conn.Close()
+
+		reader := bufio.NewScanner(conn)
+		writer := bufio.NewWriter(conn)
+		writeResponse := func(response string) bool {
+			if _, err := fmt.Fprintln(writer, response); err != nil {
+				return false
+			}
+			return writer.Flush() == nil
+		}
+		if !writeResponse("220 localhost ESMTP test server") {
+			return
+		}
+
+		var data strings.Builder
+		for reader.Scan() {
+			line := reader.Text()
+			switch {
+			case strings.HasPrefix(line, "EHLO "), strings.HasPrefix(line, "HELO "):
+				if !writeResponse("250 localhost") {
+					return
+				}
+			case strings.HasPrefix(line, "MAIL FROM:"), strings.HasPrefix(line, "RCPT TO:"):
+				if !writeResponse("250 OK") {
+					return
+				}
+			case line == "DATA":
+				if !writeResponse("354 send message data") {
+					return
+				}
+				for reader.Scan() {
+					line = reader.Text()
+					if line == "." {
+						break
+					}
+					if strings.HasPrefix(line, "..") {
+						line = strings.TrimPrefix(line, ".")
+					}
+					data.WriteString(line)
+					data.WriteString("\n")
+				}
+				message <- data.String()
+				if !writeResponse("250 message accepted") {
+					return
+				}
+			case line == "QUIT":
+				_ = writeResponse("221 bye")
+				return
+			default:
+				if !writeResponse("250 OK") {
+					return
+				}
+			}
+		}
+	}()
+
+	return listener.Addr().(*net.TCPAddr).Port, message
+}
+
+func TestAccountServiceRegisterAccountSendsOTPEmail(t *testing.T) {
+	service, cleanup := newRealAccountService(t)
+	defer cleanup()
+
+	port, email := startSMTPTestServer(t)
+	t.Setenv("SMTP_HOST", "127.0.0.1")
+	t.Setenv("SMTP_PORT", fmt.Sprint(port))
+	t.Setenv("SMTP_USERNAME", "")
+	t.Setenv("SMTP_PASSWORD", "")
+	t.Setenv("SMTP_FROM_NAME", "POS Kasir Test")
+	t.Setenv("SMTP_FROM_EMAIL", "no-reply@example.test")
+
+	account := models.Account{
+		AccountName:     "SMTP Tenant",
+		AccountEmail:    "smtp-tenant@example.test",
+		Address:         "Jl. SMTP 1",
+		MobilePhone:     "081199991111",
+		Phone:           "021299991111",
+		Password:        "secret123",
+		ConfirmPassword: "secret123",
+		PIN:             "345678",
+		ConfirmPIN:      "345678",
+		TermsAccepted:   true,
+	}
+
+	_, otp, _, err := service.RegisterAccount(account)
+	if err != nil {
+		t.Fatalf("register account: %v", err)
+	}
+
+	select {
+	case message := <-email:
+		for _, want := range []string{
+			"To: smtp-tenant@example.test",
+			"Subject: OTP registrasi account POS Cashier",
+			"OTP registrasi account kamu adalah: " + otp,
+		} {
+			if !strings.Contains(message, want) {
+				t.Errorf("registration email missing %q; message:\n%s", want, message)
+			}
+		}
+	case <-time.After(5 * time.Second):
+		t.Fatal("registration did not send OTP email within 5 seconds")
+	}
 }
 
 func TestAccountServiceRegisterAccountCreatesUserWithAccountID(t *testing.T) {

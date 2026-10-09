@@ -11,13 +11,13 @@ export type EditPageProps = EditComponentProps & {
 };
 
 export default function EditPage({
-  maxWidth = 1200,
+  maxWidth = 'none',
   padding = { xs: 2, md: 4 },
   ...editProps
 }: EditPageProps) {
   return (
     <PageContainer maxWidth={maxWidth} padding={padding}>
-      <EditComponent {...editProps} contentMaxWidth="100%" />
+      <EditComponent {...editProps} />
     </PageContainer>
   );
 }

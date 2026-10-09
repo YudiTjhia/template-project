@@ -11,7 +11,7 @@ export type ListPageProps<T extends ListRow> = ListComponentProps<T> & {
 };
 
 export default function ListPage<T extends ListRow>({
-  maxWidth = 1200,
+  maxWidth = 'none',
   padding = { xs: 2, md: 4 },
   ...listProps
 }: ListPageProps<T>) {

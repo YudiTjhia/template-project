@@ -6,13 +6,11 @@ import {
   Collapse,
   Divider,
   Drawer,
-  IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
   Toolbar,
-  Tooltip,
   useMediaQuery,
 } from '@mui/material';
 import { useTheme } from '@mui/material/styles';
@@ -25,7 +23,6 @@ import LockOutlinedIcon from '@mui/icons-material/LockOutlined';
 import ManageAccountsOutlinedIcon from '@mui/icons-material/ManageAccountsOutlined';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import LogoutOutlinedIcon from '@mui/icons-material/LogoutOutlined';
-import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { usePathname, useRouter } from 'next/navigation';
@@ -48,6 +45,8 @@ export type NavigationMenuProps = {
   onLogout?: () => void;
   subAppType?: SubAppType;
   showCurrentUser?: boolean;
+  open?: boolean;
+  onClose?: () => void;
 };
 
 const defaultItems: NavigationMenuItem[] = [
@@ -81,12 +80,13 @@ export default function NavigationMenu({
   onLogout,
   subAppType = resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE),
   showCurrentUser = true,
+  open = true,
+  onClose,
 }: NavigationMenuProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const pathname = usePathname();
   const router = useRouter();
-  const [mobileOpen, setMobileOpen] = useState(false);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
 
   const navigate = (item: NavigationMenuItem) => {
@@ -94,11 +94,11 @@ export default function NavigationMenu({
     if (item.action === 'logout') {
       if (onLogout) onLogout();
       else router.push(getSubAppUrl(subAppType, item.href ?? '/logout'));
-      setMobileOpen(false);
+      if (isMobile) onClose?.();
       return;
     }
     if (item.href) router.push(getSubAppUrl(subAppType, item.href));
-    setMobileOpen(false);
+    if (isMobile) onClose?.();
   };
 
   const isSelected = (item: NavigationMenuItem) =>
@@ -148,27 +148,16 @@ export default function NavigationMenu({
 
   if (isMobile) {
     return (
-      <>
-        <Tooltip title="Buka menu">
-          <IconButton
-            aria-label="Buka menu navigasi"
-            onClick={() => setMobileOpen(true)}
-            sx={{ position: 'fixed', zIndex: theme.zIndex.drawer + 1, top: 8, [side]: 8 }}
-          >
-            <MenuOutlinedIcon />
-          </IconButton>
-        </Tooltip>
-        <Drawer
-          anchor={side}
-          variant="temporary"
-          open={mobileOpen}
-          onClose={() => setMobileOpen(false)}
-          ModalProps={{ keepMounted: true }}
-          sx={{ '& .MuiDrawer-paper': { width, boxSizing: 'border-box' } }}
-        >
-          {drawerContent}
-        </Drawer>
-      </>
+      <Drawer
+        anchor={side}
+        variant="temporary"
+        open={open}
+        onClose={onClose}
+        ModalProps={{ keepMounted: true }}
+        sx={{ '& .MuiDrawer-paper': { width, boxSizing: 'border-box' } }}
+      >
+        {drawerContent}
+      </Drawer>
     );
   }
 
@@ -177,9 +166,16 @@ export default function NavigationMenu({
       anchor={side}
       variant="permanent"
       sx={{
-        width,
+        width: open ? width : 0,
         flexShrink: 0,
-        '& .MuiDrawer-paper': { width, boxSizing: 'border-box', position: 'relative', height: '100vh' },
+        '& .MuiDrawer-paper': {
+          width: open ? width : 0,
+          overflowX: 'hidden',
+          boxSizing: 'border-box',
+          position: 'relative',
+          height: '100vh',
+          transition: theme.transitions.create('width'),
+        },
       }}
     >
       {drawerContent}

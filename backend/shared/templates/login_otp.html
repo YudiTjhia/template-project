@@ -1,0 +1,32 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Kode OTP login POS Kasir</title>
+  </head>
+  <body style="margin:0;background:#f3f5f9;color:#182230;font-family:Arial,Helvetica,sans-serif">
+    <div style="display:none;max-height:0;overflow:hidden;opacity:0">Kode keamanan untuk masuk ke akun POS Kasir Anda.</div>
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f5f9;padding:32px 12px">
+      <tr><td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#fff;border:1px solid #e5e9f0;border-radius:16px;overflow:hidden">
+          <tr><td style="padding:28px 32px;background:#064e3b;color:#fff">
+            <div style="font-size:12px;font-weight:bold;letter-spacing:1.5px;text-transform:uppercase;color:#a7f3d0">POS Kasir</div>
+            <h1 style="margin:12px 0 0;font-size:24px;line-height:1.3">Kode OTP login</h1>
+          </td></tr>
+          <tr><td style="padding:32px">
+            <p style="margin:0 0 16px;font-size:16px;line-height:1.6">Halo {{.Name}},</p>
+            <p style="margin:0 0 20px;font-size:15px;line-height:1.7;color:#475467">Masukkan kode berikut untuk melanjutkan proses login.</p>
+            <div style="padding:20px;text-align:center;background:#ecfdf3;border:1px solid #a6f4c5;border-radius:12px">
+              <div style="font-size:12px;color:#475467;letter-spacing:1px;text-transform:uppercase">Kode OTP</div>
+              <div style="margin-top:8px;color:#047857;font-size:36px;font-weight:bold;letter-spacing:10px">{{.OTP}}</div>
+            </div>
+            <p style="margin:20px 0 0;font-size:14px;line-height:1.7;color:#475467">Kode berlaku sampai <strong style="color:#182230">{{.ExpiresAt}}</strong> (10 menit). Jangan bagikan kode ini kepada siapa pun.</p>
+            <p style="margin:18px 0 0;font-size:14px;line-height:1.7;color:#667085">Jika Anda tidak mencoba login, segera abaikan email ini dan amankan akun Anda.</p>
+          </td></tr>
+          <tr><td style="padding:18px 32px;background:#f9fafb;border-top:1px solid #eaecf0;color:#98a2b3;font-size:12px;line-height:1.6">Email otomatis dari POS Kasir. Mohon jangan membalas email ini.</td></tr>
+        </table>
+      </td></tr>
+    </table>
+  </body>
+</html>

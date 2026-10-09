@@ -1,8 +1,17 @@
-import type { AccountRegisterValues } from '@/app/components/account/AccountRegisterForm';
 import { SubAppApi, SubAppApiError } from './SubAppApi';
 
-/** Fields needed by registration; confirmation and terms are UI-only. */
-export type AccountRegisterRequest = Pick<AccountRegisterValues, 'name' | 'email' | 'password'>;
+/** Registration payload accepted by the backend account endpoint. */
+export type AccountRegisterRequest = {
+  account_name: string;
+  account_email: string;
+  address: string;
+  mobilephone: string;
+  password: string;
+  confirm_password: string;
+  pin: string;
+  confirm_pin: string;
+  terms_accepted: boolean;
+};
 
 export type AccountResponse<T = unknown> = {
   data: T;

@@ -81,7 +81,7 @@ func authMModelToDTO(record *mmodels.AuthMModel, db *sqlx.DB) *models.Auth {
 	return dto
 }
 
-func (s *AuthService) Login(identifier, password string, locationID int64, deviceID string) (string, error) {
+func (s *AuthService) Login(identifier, password string, _ int64, _ string) (string, error) {
 	identifier = strings.TrimSpace(identifier)
 	password = strings.TrimSpace(password)
 
@@ -101,32 +101,40 @@ func (s *AuthService) Login(identifier, password string, locationID int64, devic
 		return "", err
 	}
 
-	if !record.IsActive {
-		return "", errors.New("user tidak aktif")
-	}
-
 	if !helpers.CompareCredential(record.UserPassword, password) {
 		return "", errors.New("email/mobilephone atau password tidak valid")
 	}
-
-	if !isCustomerTableUser(record) {
-		if err := s.ensureLocationCashDrawerAccess(record, locationID, deviceID); err != nil {
-			return "", err
-		}
+	if !record.IsActive {
+		return "", errors.New("user tidak aktif")
 	}
-
-	if isCustomerTableUser(record) {
-		if token, err := s.reuseCustomerTableSession(record); err == nil && strings.TrimSpace(token) != "" {
-			s.recordDeviceLogin(record, deviceID)
-			return token, nil
-		} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return "", err
-		}
+	if err := s.ensureAccountActive(record.AccountID); err != nil {
+		return "", err
 	}
-
-	s.recordDeviceLogin(record, deviceID)
+	if token, ok, err := s.findValidSession(record); err != nil {
+		return "", err
+	} else if ok {
+		return token, nil
+	}
 
 	return s.issueSessionForUser(record)
+}
+
+func (s *AuthService) ensureAccountActive(accountID int64) error {
+	if accountID <= 0 {
+		return errors.New("account user tidak valid")
+	}
+	var isActive bool
+	err := s.DB.Get(&isActive, `SELECT is_active FROM accounts WHERE id = $1`, accountID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return errors.New("account tidak ditemukan")
+	}
+	if err != nil {
+		return err
+	}
+	if !isActive {
+		return errors.New("account tidak aktif")
+	}
+	return nil
 }
 
 // ChangePasswordAndPIN updates the credentials of the user attached to a valid session.
@@ -208,7 +216,7 @@ func (s *AuthService) ChangePasswordAndPIN(token, currentPassword, newPassword, 
 	return err
 }
 
-func (s *AuthService) LoginWithPIN(identifier, pin string, locationID int64, deviceID string) (string, error) {
+func (s *AuthService) LoginWithPIN(identifier, pin string, _ int64, _ string) (string, error) {
 	identifier = strings.TrimSpace(identifier)
 	pin = strings.TrimSpace(pin)
 
@@ -236,10 +244,6 @@ func (s *AuthService) LoginWithPIN(identifier, pin string, locationID int64, dev
 		return "", err
 	}
 
-	if !record.IsActive {
-		return "", errors.New("user tidak aktif")
-	}
-
 	if strings.TrimSpace(record.PIN) == "" {
 		return "", errors.New("pin user belum dibuat")
 	}
@@ -247,23 +251,17 @@ func (s *AuthService) LoginWithPIN(identifier, pin string, locationID int64, dev
 	if !helpers.CompareCredential(record.PIN, pin) {
 		return "", errors.New(errorMessage)
 	}
-
-	if !isCustomerTableUser(record) {
-		if err := s.ensureLocationCashDrawerAccess(record, locationID, deviceID); err != nil {
-			return "", err
-		}
+	if !record.IsActive {
+		return "", errors.New("user tidak aktif")
 	}
-
-	if isCustomerTableUser(record) {
-		if token, err := s.reuseCustomerTableSession(record); err == nil && strings.TrimSpace(token) != "" {
-			s.recordDeviceLogin(record, deviceID)
-			return token, nil
-		} else if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return "", err
-		}
+	if err := s.ensureAccountActive(record.AccountID); err != nil {
+		return "", err
 	}
-
-	s.recordDeviceLogin(record, deviceID)
+	if token, ok, err := s.findValidSession(record); err != nil {
+		return "", err
+	} else if ok {
+		return token, nil
+	}
 
 	return s.issueSessionForUser(record)
 }
@@ -298,7 +296,7 @@ func (s *AuthService) issueSessionForUser(record *models.User) (string, error) {
 	authRecord.Name = name
 	authRecord.Token = token
 	authRecord.TokenExpired = &tokenExpired
-	if err := authRecord.CreateSessionTx(tx, !isCustomerTableUser(record)); err != nil {
+	if err := authRecord.CreateSessionTx(tx, true); err != nil {
 		return "", err
 	}
 
@@ -310,9 +308,9 @@ func (s *AuthService) issueSessionForUser(record *models.User) (string, error) {
 	return token, nil
 }
 
-func (s *AuthService) reuseCustomerTableSession(record *models.User) (string, error) {
+func (s *AuthService) findValidSession(record *models.User) (string, bool, error) {
 	if record == nil || record.AccountID <= 0 || strings.TrimSpace(record.UserEmail) == "" {
-		return "", sql.ErrNoRows
+		return "", false, nil
 	}
 
 	existing := s.newAuthMModel()
@@ -320,14 +318,15 @@ func (s *AuthService) reuseCustomerTableSession(record *models.User) (string, er
 	existing.Email = record.UserEmail
 	existing, err := existing.FindReusableSession()
 	if err != nil {
-		return "", err
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", false, nil
+		}
+		return "", false, err
 	}
-
-	nextExpired := time.Now().UTC().Add(24 * time.Hour)
-	if err := existing.ExtendByToken(nextExpired); err != nil {
-		return "", err
+	if strings.TrimSpace(existing.Token) == "" {
+		return "", false, nil
 	}
-	return existing.Token, nil
+	return existing.Token, true, nil
 }
 
 func (s *AuthService) recordDeviceLogin(record *models.User, deviceID string) {
@@ -819,8 +818,11 @@ func (s *AuthService) sendLoginOTPEmail(record models.Auth, otp string, expired 
 		return nil
 	}
 
-	subject, body := helpers.BuildLoginOTPMail(record.Name, otp, expired)
-	message := helpers.WriteEmailMessage(cfg.FromHeader(), record.Email, subject, body)
+	subject, textBody, htmlBody, err := helpers.BuildLoginOTPMail(record.Name, otp, expired)
+	if err != nil {
+		return err
+	}
+	message := helpers.WriteHTMLMultipartEmailMessage(cfg.FromHeader(), record.Email, subject, textBody, htmlBody)
 
 	addr := cfg.Addr()
 	var auth smtp.Auth

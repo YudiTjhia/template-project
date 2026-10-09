@@ -2,7 +2,10 @@
 
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
-import { AppBar, Box, CircularProgress, Stack, Toolbar, Typography } from '@mui/material';
+import { AppBar, Box, CircularProgress, IconButton, Stack, Toolbar, Typography, useMediaQuery } from '@mui/material';
+import { useTheme } from '@mui/material/styles';
+import MenuOutlinedIcon from '@mui/icons-material/MenuOutlined';
+import CloseIcon from '@mui/icons-material/Close';
 import { usePathname, useRouter } from 'next/navigation';
 import { NavigationMenu } from '@/app/components/navigation';
 import loginService from '@/app/services/LoginService';
@@ -33,7 +36,14 @@ export default function AuthedLayout({
 }: AuthedLayoutProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'), { noSsr: true });
   const [authorized, setAuthorized] = useState(pathname === '/logout');
+  const [navigationOpen, setNavigationOpen] = useState(false);
+
+  useEffect(() => {
+    setNavigationOpen(!isMobile);
+  }, [isMobile]);
 
   useEffect(() => {
     if (pathname === '/logout') {
@@ -75,7 +85,14 @@ export default function AuthedLayout({
   }
 
   const navigation = showNavigation ? (
-    <NavigationMenu side={navigationSide} onLogout={onLogout} subAppType={subAppType} showCurrentUser={showCurrentUser} />
+    <NavigationMenu
+      side={navigationSide}
+      onLogout={onLogout}
+      subAppType={subAppType}
+      showCurrentUser={showCurrentUser}
+      open={navigationOpen}
+      onClose={() => setNavigationOpen(false)}
+    />
   ) : null;
 
   return (
@@ -85,6 +102,17 @@ export default function AuthedLayout({
         {showHeader && (
           <AppBar position="static" color="inherit" elevation={1}>
             <Toolbar>
+              {showNavigation && (
+                <IconButton
+                  edge="start"
+                  aria-label={navigationOpen ? 'Tutup menu navigasi' : 'Buka menu navigasi'}
+                  aria-expanded={navigationOpen}
+                  onClick={() => setNavigationOpen((open) => !open)}
+                  sx={{ mr: 1 }}
+                >
+                  {navigationOpen ? <CloseIcon /> : <MenuOutlinedIcon />}
+                </IconButton>
+              )}
               <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>
                 {title ?? appName}
               </Typography>

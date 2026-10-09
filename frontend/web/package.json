@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "test": "tsx --test app/services/tests/AccountService.test.ts"
+    "test": "tsx --test app/services/tests/*.test.ts"
   },
   "dependencies": {
     "@emotion/cache": "^11.14.0",

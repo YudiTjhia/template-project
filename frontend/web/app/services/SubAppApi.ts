@@ -64,7 +64,7 @@ export class SubAppApi {
 
   constructor(options: SubAppApiOptions = {}) {
     this.baseUrl = options.baseUrl ?? subAppApiBaseUrl;
-    this.fetcher = options.fetcher ?? fetch;
+    this.fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
   }
 
   async post<T>(endpoint: string, body: unknown, fallbackMessage: string): Promise<T> {

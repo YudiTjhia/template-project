@@ -1,4 +1,4 @@
-import api from './SubAppApi';
+import { SubAppApi } from './SubAppApi';
 import loginService from './LoginService';
 
 export type UserRecord = {
@@ -16,16 +16,30 @@ export type UserPayload = Omit<UserRecord, 'id'> & { user_password?: string };
 type DataResponse<T> = { data?: T };
 type IdResponse = { id?: number };
 
+export type UserServiceOptions = {
+  baseUrl?: string;
+  fetcher?: typeof fetch;
+  tokenProvider?: () => string | null;
+};
+
 export class UserService {
+  private readonly api: SubAppApi;
+  private readonly tokenProvider: () => string | null;
+
+  constructor(options: UserServiceOptions = {}) {
+    this.api = new SubAppApi({ baseUrl: options.baseUrl, fetcher: options.fetcher });
+    this.tokenProvider = options.tokenProvider ?? (() => loginService.getSessionToken());
+  }
+
   async list(search = '') {
-    const result = await api.get<DataResponse<UserRecord[]>>('/api/users', 'Gagal mengambil daftar user.', {
+    const result = await this.api.get<DataResponse<UserRecord[]>>('/api/users', 'Gagal mengambil daftar user.', {
       token: this.token(), query: { search },
     });
     return result.data ?? [];
   }
 
   async get(id: number) {
-    const result = await api.get<DataResponse<UserRecord>>(`/api/users/${id}`, 'Gagal mengambil detail user.', {
+    const result = await this.api.get<DataResponse<UserRecord>>(`/api/users/${id}`, 'Gagal mengambil detail user.', {
       token: this.token(),
     });
     if (!result.data) throw new Error('Data user tidak ditemukan.');
@@ -33,19 +47,19 @@ export class UserService {
   }
 
   async create(payload: UserPayload) {
-    return api.requestWithOptions<IdResponse>('/api/users', 'POST', payload, 'Gagal membuat user.', { token: this.token() });
+    return this.api.requestWithOptions<IdResponse>('/api/users', 'POST', payload, 'Gagal membuat user.', { token: this.token() });
   }
 
   async update(id: number, payload: UserPayload) {
-    await api.requestWithOptions(`/api/users/${id}`, 'PUT', payload, 'Gagal memperbarui user.', { token: this.token() });
+    await this.api.requestWithOptions(`/api/users/${id}`, 'PUT', payload, 'Gagal memperbarui user.', { token: this.token() });
   }
 
   async remove(id: number) {
-    await api.requestWithOptions(`/api/users/${id}`, 'DELETE', undefined, 'Gagal menghapus user.', { token: this.token() });
+    await this.api.requestWithOptions(`/api/users/${id}`, 'DELETE', undefined, 'Gagal menghapus user.', { token: this.token() });
   }
 
   private token() {
-    const token = loginService.getSessionToken();
+    const token = this.tokenProvider();
     if (!token) throw new Error('Sesi login tidak ditemukan. Silakan login kembali.');
     return token;
   }

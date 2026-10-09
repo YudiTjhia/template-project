@@ -1,15 +1,19 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Link as MuiLink, Stack, Typography } from '@mui/material';
+import { Link as MuiLink, Stack, Typography } from '@mui/material';
 import EditCenter from '../edit/EditCenter';
 import type { EditFieldMetadata, EditFieldsValues } from '../edit/EditFields';
 
 export type AccountRegisterValues = {
   name: string;
   email: string;
+  address: string;
+  mobilephone: string;
   password: string;
   confirmPassword: string;
+  pin: string;
+  confirmPin: string;
   acceptTerms: boolean;
 };
 
@@ -40,6 +44,24 @@ const fields: EditFieldMetadata[] = [
     value: '',
   },
   {
+    id: 'address',
+    field: 'address',
+    label: 'Alamat',
+    type: 'textarea',
+    placeholder: 'Masukkan alamat',
+    required: true,
+    value: '',
+  },
+  {
+    id: 'mobilephone',
+    field: 'mobilephone',
+    label: 'Nomor ponsel',
+    type: 'tel',
+    placeholder: 'Contoh: 081234567890',
+    required: true,
+    value: '',
+  },
+  {
     id: 'password',
     field: 'password',
     label: 'Kata sandi',
@@ -56,6 +78,27 @@ const fields: EditFieldMetadata[] = [
     type: 'password',
     placeholder: 'Ulangi kata sandi',
     required: true,
+    value: '',
+  },
+  {
+    id: 'pin',
+    field: 'pin',
+    label: 'PIN',
+    type: 'password',
+    placeholder: '6 digit angka',
+    helperText: 'Gunakan 6 digit angka.',
+    required: true,
+    pattern: '[0-9]{6}',
+    value: '',
+  },
+  {
+    id: 'confirmPin',
+    field: 'confirmPin',
+    label: 'Konfirmasi PIN',
+    type: 'password',
+    placeholder: 'Ulangi PIN',
+    required: true,
+    pattern: '[0-9]{6}',
     value: '',
   },
   {
@@ -81,11 +124,19 @@ export default function AccountRegisterForm({
     const values = formValues as AccountRegisterValues;
     if (values.password !== values.confirmPassword) {
       setValidationError('Konfirmasi kata sandi tidak cocok.');
-      throw new Error('Konfirmasi kata sandi tidak cocok.');
+      return;
+    }
+    if (!/^[0-9]{6}$/.test(values.pin)) {
+      setValidationError('PIN harus terdiri dari 6 digit angka.');
+      return;
+    }
+    if (values.pin !== values.confirmPin) {
+      setValidationError('Konfirmasi PIN tidak cocok.');
+      return;
     }
     if (!values.acceptTerms) {
       setValidationError('Setujui syarat dan ketentuan untuk melanjutkan.');
-      throw new Error('Setujui syarat dan ketentuan untuk melanjutkan.');
+      return;
     }
 
     setValidationError(undefined);

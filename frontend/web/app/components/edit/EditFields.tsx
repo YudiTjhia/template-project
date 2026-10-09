@@ -205,7 +205,7 @@ export default function EditFields({
   };
 
   return (
-    <Paper variant="outlined" sx={{ width: '100%', maxWidth: 720, mx: 'auto', p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+    <Paper variant="outlined" sx={{ width: '100%', maxWidth: 'none', mx: 0, p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
       <Box component="form" onSubmit={handleSubmit} noValidate>
         {(title || description) && (
           <Stack spacing={0.5} sx={{ mb: 3 }}>

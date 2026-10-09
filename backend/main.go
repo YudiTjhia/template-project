@@ -95,6 +95,7 @@ func main() {
 	authService := services.NewAuthService(db)
 	notificationService := services.NewNotificationService(db, models.Auth{})
 	salesPartnerService := services.NewSalesPartnerService(db, models.Auth{})
+	subscriptionService := services.NewSubscriptionService(db, models.Auth{})
 
 	if err := accountService.Migrate(); err != nil {
 		log.Fatalf("migrate accounts: %v", err)
@@ -105,6 +106,7 @@ func main() {
 	if err := salesPartnerService.Migrate(); err != nil {
 		log.Fatalf("migrate sales partners: %v", err)
 	}
+	subscriptionService.Migrate()
 
 	accountRoutes := routes.NewAccountRoutes(accountService)
 	authRoutes := routes.NewAuthRoutes(accountService, authService)

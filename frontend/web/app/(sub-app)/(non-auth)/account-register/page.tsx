@@ -14,18 +14,27 @@ export default function AccountRegisterPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>();
 
-  const handleRegister = async ({ name, email, password }: AccountRegisterValues) => {
+  const handleRegister = async (values: AccountRegisterValues) => {
     setLoading(true);
     setError(undefined);
     try {
-      const response = await accountService.register<RegisterResponse>({ name, email, password });
+      const response = await accountService.register<RegisterResponse>({
+        account_name: values.name,
+        account_email: values.email,
+        address: values.address,
+        mobilephone: values.mobilephone,
+        password: values.password,
+        confirm_password: values.confirmPassword,
+        pin: values.pin,
+        confirm_pin: values.confirmPin,
+        terms_accepted: values.acceptTerms,
+      });
       const accountId = response.data?.id ?? response.data?.account_id;
       if (!accountId) throw new Error('Pendaftaran berhasil dimulai, tetapi ID akun tidak diterima.');
-      router.push(`/account-otp?accountId=${accountId}&email=${encodeURIComponent(email)}`);
+      router.push(`/account-otp?accountId=${accountId}&email=${encodeURIComponent(values.email)}`);
     } catch (caughtError) {
       const message = caughtError instanceof Error ? caughtError.message : 'Pendaftaran akun gagal.';
       setError(message);
-      throw caughtError;
     } finally {
       setLoading(false);
     }

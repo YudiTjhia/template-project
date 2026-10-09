@@ -183,6 +183,14 @@ func (m Subscription) Create() (int64, error) {
 	if err := m.ValidateCreate(); err != nil {
 		return 0, err
 	}
+	planLimitsJSON := strings.TrimSpace(m.PlanLimitsJSON)
+	if planLimitsJSON == "" {
+		planLimits, marshalErr := json.Marshal(m.PlanLimits)
+		if marshalErr != nil {
+			return 0, marshalErr
+		}
+		planLimitsJSON = string(planLimits)
+	}
 
 	sql := `INSERT INTO subscriptions
 	(account_id, app_type, plan_code, plan_name, plan_limits, number_of_users, price_per_user, amount, current_start_date, current_end_date, pending_number_of_users, pending_effective_date, status, created_by)
@@ -212,7 +220,7 @@ func (m Subscription) Create() (int64, error) {
 		m.AppType,
 		m.PlanCode,
 		m.PlanName,
-		m.PlanLimitsJSON,
+		planLimitsJSON,
 		m.NumberOfUsers,
 		m.PricePerUser,
 		m.Amount,

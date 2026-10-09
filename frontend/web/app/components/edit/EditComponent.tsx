@@ -53,7 +53,7 @@ export default function EditComponent({
   actionLabels,
   actionDirection = 'row',
   actionAlign = 'right',
-  contentMaxWidth = 720,
+  contentMaxWidth = '100%',
   showActionButtons = true,
   showSubmitButton = true,
 }: EditComponentProps) {
@@ -87,14 +87,14 @@ export default function EditComponent({
   };
 
   return (
-    <Box sx={{ width: '100%', maxWidth: 1200, mx: 'auto', p: { xs: 2, md: 4 } }}>
+    <Box sx={{ width: '100%', maxWidth: 'none', mx: 0, p: { xs: 2, md: 4 } }}>
       <PageTitle
         title={title}
         subtitle={subtitle}
         showBackButton={showBackButton}
         onBack={onBack}
       />
-      <Stack spacing={2} sx={{ maxWidth: contentMaxWidth, mx: 'auto' }}>
+      <Stack spacing={2} sx={{ width: '100%', maxWidth: contentMaxWidth, mx: 0 }}>
         <EditFields
           fields={fields}
           initialValues={initialValues}

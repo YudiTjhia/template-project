@@ -14,6 +14,12 @@ services:
       CORS_ALLOW_ORIGIN: ${BACKEND_CORS_ALLOW_ORIGIN:-http://localhost:31006}
       MASTER_DB_DSN: ${MASTER_DB_DSN:?Set MASTER_DB_DSN in infra/dev/backend/.env}
       TR_DB_DSN: ${TR_DB_DSN:?Set TR_DB_DSN in infra/dev/backend/.env}
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM_NAME: ${SMTP_FROM_NAME:-POS Kasir Service}
+      SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
     ports:
       - "${BACKEND_PORT:-31007}:8080"
     restart: unless-stopped

@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"backend/shared/templates"
 )
 
 type SMTPConfig struct {
@@ -57,16 +59,16 @@ func (c SMTPConfig) Auth() smtp.Auth {
 	return smtp.PlainAuth("", c.Username, c.Password, c.Host)
 }
 
-func BuildRegisterOTPMail(accountName, otp string, expired time.Time) (string, string) {
+func BuildRegisterOTPMail(accountName, otp string, expired time.Time) (string, string, string, error) {
 	subject := "OTP registrasi account POS Cashier"
-	body := fmt.Sprintf(
+	textBody := fmt.Sprintf(
 		"Hallo %s,\n\nOTP registrasi account kamu adalah: %s\nBerlaku sampai: %s\n\nOTP ini berlaku selama 15 menit.\nJika kamu tidak merasa mendaftar, abaikan email ini.\n",
 		accountName,
 		otp,
 		expired.Format(time.RFC3339),
 	)
-
-	return subject, body
+	htmlBody, err := templates.RenderAccountOTP(accountName, otp, expired)
+	return subject, textBody, htmlBody, err
 }
 
 func BuildRegisterAccountIDMail(accountName string, accountID int64) (string, string) {
@@ -80,16 +82,16 @@ func BuildRegisterAccountIDMail(accountName string, accountID int64) (string, st
 	return subject, body
 }
 
-func BuildLoginOTPMail(username, otp string, expired time.Time) (string, string) {
+func BuildLoginOTPMail(username, otp string, expired time.Time) (string, string, string, error) {
 	subject := "OTP login buyer"
-	body := fmt.Sprintf(
+	textBody := fmt.Sprintf(
 		"Hallo %s,\n\nOTP login kamu adalah: %s\nBerlaku sampai: %s\n\nOTP ini berlaku selama 10 menit.\nJika kamu tidak merasa mencoba login, abaikan email ini.\n",
 		username,
 		otp,
 		expired.Format(time.RFC3339),
 	)
-
-	return subject, body
+	htmlBody, err := templates.RenderLoginOTP(username, otp, expired)
+	return subject, textBody, htmlBody, err
 }
 
 func WriteEmailMessage(from, to, subject, body string) []byte {

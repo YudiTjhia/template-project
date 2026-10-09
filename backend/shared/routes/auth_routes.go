@@ -3,12 +3,14 @@ package routes
 import (
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
 	"backend/shared/models"
 	"backend/shared/services"
 	"github.com/go-chi/chi/v5"
+	"github.com/lib/pq"
 )
 
 type AuthRoutes struct {
@@ -618,6 +620,12 @@ func (r *AuthRoutes) findCustomerID(email string) (int64, error) {
 		strings.TrimSpace(email),
 	)
 	if err == sql.ErrNoRows {
+		return 0, nil
+	}
+	var postgresErr *pq.Error
+	if errors.As(err, &postgresErr) && postgresErr.Code == "42P01" {
+		// Customer records are owned by a separate service/schema in some
+		// deployments, so this optional lookup must not block authentication.
 		return 0, nil
 	}
 	return customerID, err

@@ -783,8 +783,11 @@ func (s *AccountService) sendRegisterOTPEmail(account models.Account, otp string
 		return nil
 	}
 
-	subject, body := helpers.BuildRegisterOTPMail(account.AccountName, otp, expired)
-	message := helpers.WriteEmailMessage(cfg.FromHeader(), account.AccountEmail, subject, body)
+	subject, textBody, htmlBody, err := helpers.BuildRegisterOTPMail(account.AccountName, otp, expired)
+	if err != nil {
+		return err
+	}
+	message := helpers.WriteHTMLMultipartEmailMessage(cfg.FromHeader(), account.AccountEmail, subject, textBody, htmlBody)
 
 	addr := cfg.Addr()
 	var auth smtp.Auth
