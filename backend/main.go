@@ -96,6 +96,7 @@ func main() {
 	notificationService := services.NewNotificationService(db, models.Auth{})
 	salesPartnerService := services.NewSalesPartnerService(db, models.Auth{})
 	subscriptionService := services.NewSubscriptionService(db, models.Auth{})
+	roleService := services.NewRoleService(db, models.Auth{})
 
 	if err := accountService.Migrate(); err != nil {
 		log.Fatalf("migrate accounts: %v", err)
@@ -107,12 +108,15 @@ func main() {
 		log.Fatalf("migrate sales partners: %v", err)
 	}
 	subscriptionService.Migrate()
+	if err := roleService.Migrate(); err != nil {
+		log.Fatalf("migrate roles and role actions: %v", err)
+	}
 
 	accountRoutes := routes.NewAccountRoutes(accountService)
 	authRoutes := routes.NewAuthRoutes(accountService, authService)
 	authRoutes.RegisterPublic(router)
 	userRoutes := routes.NewUserRoutes(userService)
-	roleRoutes := routes.NewRoleRoutes(services.NewRoleService(db, models.Auth{}))
+	roleRoutes := routes.NewRoleRoutes(roleService)
 	var routeRegistrationErr error
 	router.Group(func(protected chi.Router) {
 		protected.Use(func(next http.Handler) http.Handler { return errorMiddleware.Wrap(next) })

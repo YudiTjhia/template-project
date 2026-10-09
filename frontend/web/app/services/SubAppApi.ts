@@ -21,8 +21,6 @@ export class SubAppApiError extends Error {
   }
 }
 
-const subAppApiBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
-
 export function buildApiUrl(baseUrl: string, endpoint: string) {
   if (/^https?:\/\//i.test(endpoint)) return endpoint;
   if (!baseUrl) return endpoint;
@@ -63,7 +61,9 @@ export class SubAppApi {
   private readonly fetcher: typeof fetch;
 
   constructor(options: SubAppApiOptions = {}) {
-    this.baseUrl = options.baseUrl ?? subAppApiBaseUrl;
+    // Browser services call same-origin Next.js API routes. The API route
+    // proxy uses BACKEND_BASE_URL to connect to the backend.
+    this.baseUrl = options.baseUrl ?? '';
     this.fetcher = options.fetcher ?? globalThis.fetch.bind(globalThis);
   }
 

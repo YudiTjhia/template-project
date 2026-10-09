@@ -13,7 +13,7 @@ if [[ -f "$WEB_ENV_FILE" ]]; then
   # shellcheck disable=SC1090
   source "$WEB_ENV_FILE"
   set +a
-  unset ADMIN_API_BASE_URL CUSTOMER_API_BASE_URL NEXT_PUBLIC_API_BASE_URL
+  unset BACKEND_BASE_URL
 fi
 set -a
 # shellcheck disable=SC1090

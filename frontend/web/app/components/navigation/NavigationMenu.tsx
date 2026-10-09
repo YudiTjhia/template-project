@@ -137,9 +137,7 @@ export default function NavigationMenu({
 
   const drawerContent = (
     <Box sx={{ width, height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Toolbar>
-        <Box component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>Navigation</Box>
-      </Toolbar>
+      <Toolbar />
       {showCurrentUser && <CurrentUser />}
       <Divider />
       <List sx={{ py: 1, flex: 1 }}>{renderItems(items)}</List>

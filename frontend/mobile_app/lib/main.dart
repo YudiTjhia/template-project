@@ -11,7 +11,6 @@ import 'pages/change_password_page.dart';
 import 'pages/chat/chat_page.dart';
 import 'pages/login/splash_page.dart';
 import 'pages/notifications/notification_page.dart';
-import 'pages/roles/role_edit_page.dart';
 import 'pages/roles/roles_list_page.dart';
 import 'pages/users/profile_page.dart';
 import 'pages/users/user_edit_page.dart';
@@ -87,10 +86,6 @@ class MobileApp extends StatelessWidget {
         '/roles': (_) => RolesListPage(
           service: AppConfig.useDummyRoles ? DummyRoleService() : null,
         ),
-        '/roles/edit': (context) {
-          final roleId = ModalRoute.of(context)?.settings.arguments as int?;
-          return RoleEditPage(roleId: roleId);
-        },
       },
       home: requireLogin ? const SplashPage() : const HomePage(),
     );

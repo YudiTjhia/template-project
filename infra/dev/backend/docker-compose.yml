@@ -21,7 +21,7 @@ services:
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-POS Kasir Service}
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-}
     ports:
-      - "${BACKEND_PORT:-31007}:8080"
+      - "${BACKEND_PORT:-31017}:8080"
     restart: unless-stopped
     networks:
       - template_project_dev

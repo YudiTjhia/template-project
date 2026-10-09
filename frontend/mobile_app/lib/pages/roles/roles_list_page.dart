@@ -4,7 +4,7 @@ import 'package:mobile_app/services/role_service.dart';
 
 import '../../navigation/app_drawer_menu.dart';
 
-import 'role_edit_page.dart';
+import 'role_edit_dialog.dart';
 
 class RolesListPage extends StatefulWidget {
   const RolesListPage({super.key, this.service, this.enableDrawer = true});
@@ -61,11 +61,12 @@ class _RolesListPageState extends State<RolesListPage> {
     }
   }
 
-  Future<void> _openEditor([int? roleId]) async {
-    final changed = await Navigator.of(context).push<bool>(
-      MaterialPageRoute(
-        builder: (_) => RoleEditPage(roleId: roleId, service: _service),
-      ),
+  Future<void> _openEditor({int? roleId, required RoleEditMode mode}) async {
+    final changed = await RoleEditDialog.show(
+      context,
+      mode: mode,
+      roleId: roleId,
+      service: _service,
     );
     if (changed == true) _loadRoles();
   }
@@ -78,7 +79,7 @@ class _RolesListPageState extends State<RolesListPage> {
           ? const AppDrawerMenu(selectedRoute: '/roles')
           : null,
       floatingActionButton: FloatingActionButton.extended(
-        onPressed: () => _openEditor(),
+        onPressed: () => _openEditor(mode: RoleEditMode.create),
         icon: const Icon(Icons.add_moderator_outlined),
         label: const Text('Tambah Role'),
       ),
@@ -156,13 +157,19 @@ class _RolesListPageState extends State<RolesListPage> {
           return Card(
             margin: EdgeInsets.zero,
             child: ListTile(
-              onTap: () => _openEditor(role.id),
+              onTap: () =>
+                  _openEditor(roleId: role.id, mode: RoleEditMode.view),
               leading: const CircleAvatar(
                 child: Icon(Icons.admin_panel_settings_outlined),
               ),
               title: Text(role.name),
               subtitle: Text('${role.actions.length} action'),
-              trailing: const Icon(Icons.chevron_right),
+              trailing: IconButton(
+                tooltip: 'Edit role',
+                onPressed: () =>
+                    _openEditor(roleId: role.id, mode: RoleEditMode.edit),
+                icon: const Icon(Icons.edit_outlined),
+              ),
             ),
           );
         },

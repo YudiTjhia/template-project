@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"errors"
 
 	"backend/shared/metadata/impl"
 	"backend/shared/metadata/interfaces"
@@ -58,9 +59,18 @@ func (s *RoleService) NewRoleAction() models.RoleAction {
 	return models.NewRoleAction(s.DB, s.Auth)
 }
 
-func (s *RoleService) Migrate() {
-	s.NewRole().Migrate()
-	s.NewRoleAction().Migrate()
+func (s *RoleService) Migrate() error {
+	if s == nil || s.DB == nil {
+		return errors.New("role service database is nil")
+	}
+	if err := s.roleMModel().Migrate(); err != nil {
+		return err
+	}
+	roleAction := mmodels.NewRoleActionMModel(context.Background(), s.DB)
+	if err := roleAction.Migrate(); err != nil {
+		return err
+	}
+	return nil
 }
 
 func (s *RoleService) Create(role models.Role) (int64, error) {

@@ -15,12 +15,11 @@ Buka `http://localhost:3000`. Buat file `.env` lokal (diabaikan Git) dan isi set
 
 ```dotenv
 SUB_APP_TYPE=admin
-ADMIN_API_BASE_URL=http://localhost:8080
-CUSTOMER_API_BASE_URL=http://localhost:8080
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+APP_NAME=Application
+BACKEND_BASE_URL=http://localhost:8080
 ```
 
-`SUB_APP_TYPE` memilih `admin` atau `customer` dan menentukan prefix route yang terlihat (`/admin/...` atau `/customer/...`). Variabel `NEXT_PUBLIC_*` tertanam di build browser; jangan taruh credential privat di dalamnya. Untuk menjalankan web, lihat juga [panduan infra development](../../infra/dev/frontend/README.md).
+`SUB_APP_TYPE` memilih `admin` atau `customer` dan menentukan prefix route yang terlihat (`/admin/...` atau `/customer/...`). Semua route sub-app memakai `BACKEND_BASE_URL` melalui API proxy same-origin. Untuk menjalankan web, lihat juga [panduan infra development](../../infra/dev/frontend/README.md).
 
 ## Build
 
@@ -54,4 +53,4 @@ The signed-in notification page is available at `/notifications`. It loads the u
 
 The active `SUB_APP_TYPE` adds a visible route prefix: `/admin/...` for the admin build and `/customer/...` for the customer build. Requests without a prefix are redirected to the active sub-app. The middleware rewrites the prefixed URL internally to the existing route group, so route files remain shared.
 
-The `admin` and `customer` builds are still configured independently with `SUB_APP_TYPE` and their corresponding API URL.
+The `admin` and `customer` builds use `SUB_APP_TYPE` for routing and share the configured `BACKEND_BASE_URL`.

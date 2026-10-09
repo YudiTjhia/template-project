@@ -72,16 +72,15 @@ def deploy(env):
         raise ValueError('Backend Cloud Run belum tersedia; deploy backend terlebih dahulu.') from error
 
     sub_app_type = env.get('SUB_APP_TYPE', 'admin')
-    configured_api_url = env.get(f'{sub_app_type.upper()}_API_BASE_URL') or env.get('NEXT_PUBLIC_API_BASE_URL')
-    api_url = configured_api_url or backend_url
+    configured_backend_url = env.get('BACKEND_BASE_URL', '').strip()
+    api_url = configured_backend_url or backend_url
+    app_name = env.get('APP_NAME', 'Application').strip() or 'Application'
     tag = datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S-%f')
     image = f'{region}-docker.pkg.dev/{project}/{repository}/template-project-frontend:{tag}'
     substitutions = ','.join([
         f'_IMAGE={image}',
         f'_SUB_APP_TYPE={sub_app_type}',
-        '_ADMIN_API_BASE_URL=',
-        '_CUSTOMER_API_BASE_URL=',
-        f'_NEXT_PUBLIC_API_BASE_URL={api_url}',
+        f'_APP_NAME={app_name}',
         f'_NEXT_PUBLIC_ACCOUNT_REGISTER_PATH={env.get("NEXT_PUBLIC_ACCOUNT_REGISTER_PATH", "/auth/accounts/register")}',
         f'_NEXT_PUBLIC_LOGIN_PATH={env.get("NEXT_PUBLIC_LOGIN_PATH", "/auth/login")}',
         f'_NEXT_PUBLIC_FIREBASE_API_KEY={env.get("NEXT_PUBLIC_FIREBASE_API_KEY", "")}',
@@ -105,6 +104,7 @@ def deploy(env):
     ]
     args.append('--allow-unauthenticated' if env.get('CLOUD_RUN_ALLOW_UNAUTHENTICATED', 'true') == 'true'
                 else '--no-allow-unauthenticated')
+    args.extend(['--update-env-vars', f'BACKEND_BASE_URL={api_url},APP_NAME={app_name}'])
     run(project, *args)
     url = run(project, 'run', 'services', 'describe', service, '--region', region,
               '--format=value(status.url)')

@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 
 /** Forward a same-origin Next API request to the backend selected for this build. */
 export async function proxyBackendRequest(request: Request, backendPath: string) {
-  const backendBaseUrl = process.env.NEXT_PUBLIC_API_BASE_URL ?? '';
+  const backendBaseUrl = process.env.BACKEND_BASE_URL?.trim() ?? '';
   if (!backendBaseUrl) {
     return NextResponse.json({ message: 'Backend API URL belum dikonfigurasi.' }, { status: 503 });
   }
