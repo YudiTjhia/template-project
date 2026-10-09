@@ -1,7 +1,7 @@
 import 'dart:convert';
 
 import 'package:mobile_app/models/notification_model.dart';
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 import 'package:mobile_app/shared/services/base_service.dart';
 
 class NotificationApiService extends BaseService {

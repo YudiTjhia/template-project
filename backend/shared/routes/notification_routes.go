@@ -4,77 +4,64 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type NotificationRoutes struct {
 	Service *services.NotificationService
 }
 
+var _ interfaces.IListRouteOperations = (*NotificationRoutes)(nil)
+
 func NewNotificationRoutes(service *services.NotificationService) *NotificationRoutes {
 	return &NotificationRoutes{Service: service}
 }
 
-func (r *NotificationRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/notifications", r.handleNotifications)
-	mux.HandleFunc("/notifications/", r.handleNotificationByID)
+func (r *NotificationRoutes) Register(router chi.Router) {
+	_ = impl.NewMRoutes().RegisterListRoute(loggedRouteRegistrar{router}, "/notifications", r)
+	registerLoggedHandler(router, "/notifications/{id}/read", r.handleMarkRead)
 }
 
-func (r *NotificationRoutes) handleNotifications(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodGet {
-		writeNotificationJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
+func (r *NotificationRoutes) List(req *http.Request) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeNotificationJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
 	if strings.EqualFold(req.URL.Query().Get("count"), "unread") {
 		count, err := service.CountUnread()
 		if err != nil {
-			writeNotificationJSONError(w, http.StatusInternalServerError, err.Error())
-			return
+			return nil, err
 		}
-		writeNotificationJSON(w, http.StatusOK, map[string]interface{}{"unreadCount": count})
-		return
+		return impl.RouteResponse{
+			Status: http.StatusOK,
+			Body:   map[string]interface{}{"unreadCount": count},
+		}, nil
 	}
-
-	limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
-	items, err := service.FindList(req.URL.Query().Get("search"), limit)
+	limit, err := queryInt(req, "limit", 0)
 	if err != nil {
-		writeNotificationJSONError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-	writeNotificationJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	return service.FindList(req.URL.Query().Get("search"), limit)
 }
 
-func (r *NotificationRoutes) handleNotificationByID(w http.ResponseWriter, req *http.Request) {
-	service, err := r.serviceForRequest(req)
-	if err != nil {
-		writeNotificationJSONError(w, http.StatusBadRequest, err.Error())
-		return
-	}
-
-	path := strings.TrimPrefix(req.URL.Path, "/notifications/")
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) < 2 || parts[0] == "" || parts[1] != "read" {
-		writeNotificationJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
+func (r *NotificationRoutes) handleMarkRead(w http.ResponseWriter, req *http.Request) {
 	if req.Method != http.MethodPost {
 		writeNotificationJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 		return
 	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
+	id, err := routeInt64Param(req, "id", "notification")
 	if err != nil {
-		writeNotificationJSONError(w, http.StatusBadRequest, "invalid notification id")
+		writeNotificationJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		writeNotificationJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
 	if err := service.MarkRead(id); err != nil {

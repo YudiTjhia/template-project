@@ -2,12 +2,15 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app/models/role_model.dart';
 import 'package:mobile_app/services/role_service.dart';
 
+import '../../navigation/app_drawer_menu.dart';
+
 import 'role_edit_page.dart';
 
 class RolesListPage extends StatefulWidget {
-  const RolesListPage({super.key, this.service});
+  const RolesListPage({super.key, this.service, this.enableDrawer = true});
 
   final RoleService? service;
+  final bool enableDrawer;
 
   @override
   State<RolesListPage> createState() => _RolesListPageState();
@@ -71,6 +74,9 @@ class _RolesListPageState extends State<RolesListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar Role')),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/roles')
+          : null,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.add_moderator_outlined),

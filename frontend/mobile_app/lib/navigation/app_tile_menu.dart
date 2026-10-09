@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'app_page_navigation.dart';
-import 'tile_menu.dart';
+import '../shared/navigation/tile_menu.dart';
 
 /// A tile menu populated with the application's standard page links.
 class AppTileMenu extends StatelessWidget {
@@ -22,14 +22,32 @@ class AppTileMenu extends StatelessWidget {
       backgroundColor: backgroundColor,
       borderRadius: borderRadius,
       items: [
-        for (final item in items)
+        for (final item in _navigableItems)
           TileMenuItem(
             title: item.title,
             icon: item.icon,
             subtitle: item.subtitle,
-            onTap: () => AppPageNavigation.go(context, item.route),
+            onTap: () {
+              final route = item.route;
+              if (route != null && route.isNotEmpty) {
+                AppPageNavigation.go(context, route);
+              }
+            },
           ),
       ],
     );
+  }
+
+  List<AppPageMenuItem> get _navigableItems {
+    final result = <AppPageMenuItem>[];
+    void collect(List<AppPageMenuItem> source) {
+      for (final item in source) {
+        if (item.route != null && item.route!.isNotEmpty) result.add(item);
+        collect(item.children);
+      }
+    }
+
+    collect(items);
+    return result;
   }
 }

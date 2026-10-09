@@ -1,13 +1,9 @@
 import type { Metadata } from 'next';
-import { Roboto } from 'next/font/google';
+import '@fontsource/roboto/300.css';
+import '@fontsource/roboto/400.css';
+import '@fontsource/roboto/500.css';
+import '@fontsource/roboto/700.css';
 import Providers from './providers';
-
-const roboto = Roboto({
-  subsets: ['latin'],
-  weight: ['300', '400', '500', '700'],
-  variable: '--font-roboto',
-  display: 'swap',
-});
 
 export const metadata: Metadata = {
   title: 'Next.js + MUI',
@@ -17,7 +13,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
     <html lang="en">
-      <body className={roboto.variable}>
+      <body>
         <Providers>{children}</Providers>
       </body>
     </html>

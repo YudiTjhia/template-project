@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 import 'package:mobile_app/shared/helpers/session_helper.dart';
 import 'package:mobile_app/shared/services/base_service.dart';
 

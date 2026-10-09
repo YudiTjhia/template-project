@@ -9,5 +9,5 @@ infra/staging/vm/backend/docker-build.sh up
 infra/staging/vm/frontend/docker-build.sh up
 ```
 
-Database tersedia pada port localhost `32008`, backend pada `32007`, dan frontend pada `32006`. Backend dan DB berbagi network `template_web_staging`, dengan host database `db`.
+Database tersedia pada port localhost `32008`, backend pada `32007`, dan frontend pada `32006`. Backend dan DB berbagi network `template_project_staging`, dengan host database `db`.
 File `.env` berisi konfigurasi sensitif dan diabaikan Git.

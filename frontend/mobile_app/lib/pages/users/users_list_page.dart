@@ -3,12 +3,15 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app/models/user_model.dart';
 import 'package:mobile_app/services/user_service.dart';
 
+import '../../navigation/app_drawer_menu.dart';
+
 import 'user_edit_page.dart';
 
 class UsersListPage extends StatefulWidget {
-  const UsersListPage({super.key, this.service});
+  const UsersListPage({super.key, this.service, this.enableDrawer = true});
 
   final UserService? service;
+  final bool enableDrawer;
 
   @override
   State<UsersListPage> createState() => _UsersListPageState();
@@ -67,6 +70,9 @@ class _UsersListPageState extends State<UsersListPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Daftar User')),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/users')
+          : null,
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _openEditor(),
         icon: const Icon(Icons.person_add_alt_1),

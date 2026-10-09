@@ -1,6 +1,6 @@
 # PostgreSQL dev database
 
-Menjalankan PostgreSQL 16 dengan pgvector, dua database (`template_web_master` dan `template_web_tr`), serta persistent volume. Backend dan database berbagi Docker network `template_web_dev`; DSN backend memakai host `db`.
+Menjalankan PostgreSQL 16 dengan pgvector, dua database (`template_project_master` dan `template_project_tr`), serta persistent volume. Backend dan database berbagi Docker network `template_project_dev`; DSN backend memakai host `db`.
 
 ```bash
 # Pastikan infra/dev/db/.env sudah diisi.

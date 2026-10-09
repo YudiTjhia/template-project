@@ -1,14 +1,14 @@
 package models
 
 import (
-	"errors"
-	"log"
-	"strings"
+	"context"
 	"time"
 
+	"backend/shared/mmodels"
 	"github.com/jmoiron/sqlx"
 )
 
+// Notification is retained as the API and service DTO. NotificationMModel owns persistence.
 type Notification struct {
 	BaseModel
 
@@ -26,191 +26,99 @@ type Notification struct {
 	ReadAt          *time.Time `json:"readAt,omitempty" db:"read_at"`
 }
 
-const notificationSelectColumns = `n.id, n.account_id, n.recipient_user_id, n.recipient_email, n.title, n.message, n.entity_type, n.entity_id, n.entity_number, n.action, n.is_read, n.read_at,
-n.created_at, n.created_by, n.updated_at, n.updated_by`
-
 func NewNotification(db *sqlx.DB, auth Auth) Notification {
 	item := Notification{BaseModel: BaseModel{DB: db, Auth: auth}, AccountID: auth.AccountID}
 	item.CreatedBy = auth.Email
 	return item
 }
 
+func (m Notification) mmodel() *mmodels.NotificationMModel {
+	ctx := m.Context
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	item := mmodels.NewNotificationMModel(ctx, m.DB)
+	item.ID = m.ID
+	item.AccountID = m.AccountID
+	item.RecipientUserID = m.RecipientUserID
+	item.RecipientEmail = m.RecipientEmail
+	item.Title = m.Title
+	item.Message = m.Message
+	item.EntityType = m.EntityType
+	item.EntityID = m.EntityID
+	item.EntityNumber = m.EntityNumber
+	item.Action = m.Action
+	item.IsRead = m.IsRead
+	item.ReadAt = m.ReadAt
+	item.CreatedAt = m.CreatedAt
+	item.CreatedBy = m.CreatedBy
+	if m.UpdatedAt != nil {
+		item.UpdatedAt.Valid = true
+		item.UpdatedAt.Time = *m.UpdatedAt
+	}
+	if m.UpdatedBy != nil {
+		item.UpdatedBy.Valid = true
+		item.UpdatedBy.String = *m.UpdatedBy
+	}
+	item.AuthAccountID = m.Auth.AccountID
+	item.AuthEmail = m.Auth.Email
+	item.AuthUserName = m.Auth.UserName
+	return item
+}
+
+func notificationFromMModel(item *mmodels.NotificationMModel, base BaseModel) *Notification {
+	if item == nil {
+		return nil
+	}
+	result := &Notification{
+		BaseModel: base,
+		ID:        item.ID, AccountID: item.AccountID,
+		RecipientUserID: item.RecipientUserID, RecipientEmail: item.RecipientEmail,
+		Title: item.Title, Message: item.Message, EntityType: item.EntityType,
+		EntityID: item.EntityID, EntityNumber: item.EntityNumber, Action: item.Action,
+		IsRead: item.IsRead, ReadAt: item.ReadAt,
+	}
+	result.CreatedAt, result.CreatedBy = item.CreatedAt, item.CreatedBy
+	if item.UpdatedAt.Valid {
+		updatedAt := item.UpdatedAt.Time
+		result.UpdatedAt = &updatedAt
+	}
+	if item.UpdatedBy.Valid {
+		updatedBy := item.UpdatedBy.String
+		result.UpdatedBy = &updatedBy
+	}
+	return result
+}
+
 func (m Notification) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS notifications (
-	id SERIAL PRIMARY KEY,
-	account_id BIGINT NOT NULL DEFAULT 0,
-	recipient_user_id BIGINT,
-	recipient_email VARCHAR(255) NOT NULL DEFAULT '',
-	title VARCHAR(255) NOT NULL DEFAULT '',
-	message TEXT NOT NULL DEFAULT '',
-	entity_type VARCHAR(100) NOT NULL DEFAULT '',
-	entity_id BIGINT NOT NULL DEFAULT 0,
-	entity_number VARCHAR(100) NOT NULL DEFAULT '',
-	action VARCHAR(50) NOT NULL DEFAULT '',
-	is_read BOOLEAN NOT NULL DEFAULT false,
-	read_at TIMESTAMPTZ,
-	created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-	created_by VARCHAR(255) NOT NULL DEFAULT '',
-	updated_at TIMESTAMPTZ,
-	updated_by VARCHAR(255)
-);`
-	log.Println("[SQL]=", sql)
-	m.DB.MustExec(sql)
-
-	statements := []string{
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_user_id BIGINT;`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255) NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(255) NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_type VARCHAR(100) NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_number VARCHAR(100) NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action VARCHAR(50) NOT NULL DEFAULT '';`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false;`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ;`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_account_recipient ON notifications (account_id, recipient_user_id, is_read, created_at DESC);`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_account_email ON notifications (account_id, LOWER(recipient_email), is_read, created_at DESC);`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications (account_id, entity_type, entity_id);`,
-	}
-	for _, statement := range statements {
-		log.Println("[SQL]=", statement)
-		m.DB.MustExec(statement)
+	if err := m.MigrateError(); err != nil {
+		panic(err)
 	}
 }
 
-func (m Notification) Create() (int64, error) {
-	accountID, err := m.resolveAccountID()
-	if err != nil {
-		return 0, err
-	}
-	m.Normalize()
-	if m.Title == "" {
-		return 0, errors.New("title notification wajib diisi")
-	}
-	if m.Message == "" {
-		return 0, errors.New("message notification wajib diisi")
-	}
-	if m.RecipientUserID == nil && m.RecipientEmail == "" {
-		return 0, errors.New("recipient notification wajib diisi")
-	}
-	createdBy := m.CreatedBy
-	if createdBy == "" {
-		createdBy = m.Auth.Email
-	}
-	if createdBy == "" {
-		createdBy = m.Auth.UserName
-	}
-	if createdBy == "" {
-		createdBy = "system"
-	}
+func (m Notification) MigrateError() error { return m.mmodel().Migrate() }
 
-	var id int64
-	err = m.DB.QueryRow(
-		`INSERT INTO notifications
-		(account_id, recipient_user_id, recipient_email, title, message, entity_type, entity_id, entity_number, action, is_read, created_by)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,false,$10)
-		RETURNING id`,
-		accountID,
-		m.RecipientUserID,
-		m.RecipientEmail,
-		m.Title,
-		m.Message,
-		m.EntityType,
-		m.EntityID,
-		m.EntityNumber,
-		m.Action,
-		createdBy,
-	).Scan(&id)
-	return id, err
-}
+func (m Notification) Create() (int64, error) { return m.mmodel().Create() }
 
-func (m Notification) FindList(recipientUserID int64, recipientEmail string, search string, limit int) ([]Notification, error) {
-	accountID, err := m.resolveAccountID()
+func (m Notification) FindList(recipientUserID int64, recipientEmail, search string, limit int) ([]Notification, error) {
+	items, err := m.mmodel().FindList(recipientUserID, recipientEmail, search, limit)
 	if err != nil {
 		return nil, err
 	}
-	if limit <= 0 || limit > 100 {
-		limit = 20
+	result := make([]Notification, 0, len(items))
+	for i := range items {
+		result = append(result, *notificationFromMModel(&items[i], m.BaseModel))
 	}
-
-	sql := `SELECT ` + notificationSelectColumns + ` FROM notifications n WHERE n.account_id = $1`
-	args := []interface{}{accountID}
-	if recipientUserID > 0 {
-		args = append(args, recipientUserID)
-		sql += ` AND n.recipient_user_id = $2`
-	} else if strings.TrimSpace(recipientEmail) != "" {
-		args = append(args, strings.ToLower(strings.TrimSpace(recipientEmail)))
-		sql += ` AND LOWER(n.recipient_email) = $2`
-	} else {
-		return []Notification{}, nil
-	}
-	if strings.TrimSpace(search) != "" {
-		args = append(args, search)
-		placeholder := nextSQLPlaceholder(args)
-		sql += ` AND (n.title ILIKE '%' || ` + placeholder + ` || '%' OR n.message ILIKE '%' || ` + placeholder + ` || '%' OR n.entity_number ILIKE '%' || ` + placeholder + ` || '%')`
-	}
-	sql += ` ORDER BY n.created_at DESC, n.id DESC LIMIT ` + nextSQLPlaceholder(append(args, limit))
-	args = append(args, limit)
-
-	var items []Notification
-	err = m.DB.Select(&items, sql, args...)
-	return items, err
+	return result, nil
 }
 
 func (m Notification) CountUnread(recipientUserID int64, recipientEmail string) (int64, error) {
-	accountID, err := m.resolveAccountID()
-	if err != nil {
-		return 0, err
-	}
-	sql := `SELECT COUNT(*) FROM notifications WHERE account_id = $1 AND is_read = false`
-	args := []interface{}{accountID}
-	if recipientUserID > 0 {
-		args = append(args, recipientUserID)
-		sql += ` AND recipient_user_id = $2`
-	} else if strings.TrimSpace(recipientEmail) != "" {
-		args = append(args, strings.ToLower(strings.TrimSpace(recipientEmail)))
-		sql += ` AND LOWER(recipient_email) = $2`
-	} else {
-		return 0, nil
-	}
-
-	var count int64
-	err = m.DB.Get(&count, sql, args...)
-	return count, err
+	return m.mmodel().CountUnread(recipientUserID, recipientEmail)
 }
 
-func (m Notification) MarkRead(id int64) error {
-	accountID, err := m.resolveAccountID()
-	if err != nil {
-		return err
-	}
-	if id <= 0 {
-		return errors.New("id notification tidak valid")
-	}
-	updatedBy := m.Auth.Email
-	if updatedBy == "" {
-		updatedBy = m.Auth.UserName
-	}
-	_, err = m.DB.Exec(`UPDATE notifications SET is_read = true, read_at = NOW(), updated_at = NOW(), updated_by = $1 WHERE id = $2 AND account_id = $3`, updatedBy, id, accountID)
-	return err
-}
+func (m Notification) MarkRead(id int64) error { return m.mmodel().MarkRead(id) }
 
 func (m Notification) Normalize() {
-	m.RecipientEmail = strings.ToLower(strings.TrimSpace(m.RecipientEmail))
-	m.Title = strings.TrimSpace(m.Title)
-	m.Message = strings.TrimSpace(m.Message)
-	m.EntityType = strings.ToUpper(strings.TrimSpace(m.EntityType))
-	m.EntityNumber = strings.TrimSpace(m.EntityNumber)
-	m.Action = strings.ToUpper(strings.TrimSpace(m.Action))
-}
-
-func (m Notification) resolveAccountID() (int64, error) {
-	if m.Auth.AccountID > 0 {
-		return m.Auth.AccountID, nil
-	}
-	if m.AccountID > 0 {
-		return m.AccountID, nil
-	}
-	return 0, errors.New("id akun wajib diisi")
+	item := m.mmodel()
+	item.Normalize()
 }

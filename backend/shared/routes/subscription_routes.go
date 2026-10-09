@@ -5,166 +5,114 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
 	"backend/shared/models"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type SubscriptionRoutes struct {
 	Service *services.SubscriptionService
 }
 
+var _ interfaces.ICRUDRouteOperations = (*SubscriptionRoutes)(nil)
+
 func NewSubscriptionRoutes(service *services.SubscriptionService) *SubscriptionRoutes {
 	return &SubscriptionRoutes{Service: service}
 }
 
-func (r *SubscriptionRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/subscriptions", r.handleSubscriptions)
-	mux.HandleFunc("/subscriptions/", r.handleSubscriptionByID)
-	mux.HandleFunc("/subscription-histories", r.handleSubscriptionHistories)
+func (r *SubscriptionRoutes) Register(router chi.Router) {
+	_ = impl.NewMRoutes().RegisterRoutes(loggedRouteRegistrar{router}, "/subscriptions", r)
+	registerLoggedHandler(router, "/subscriptions/current", r.handleSubscriptionCurrent)
+	registerLoggedHandler(router, "/subscriptions/status", r.handleSubscriptionStatus)
+	registerLoggedHandler(router, "/subscriptions/payment-info", r.handleSubscriptionPaymentInfo)
+	registerLoggedHandler(router, "/subscriptions/payments", r.handleSubscriptionPayments)
+	registerLoggedHandler(router, "/subscriptions/generate-token", r.handleSubscriptionGenerateToken)
+	registerLoggedHandler(router, "/subscriptions/apply-token", r.handleSubscriptionApplyToken)
+	registerLoggedHandler(router, "/subscriptions/pay", r.handleSubscriptionPay)
+	registerLoggedHandler(router, "/subscriptions/{id}/adjust-users", r.handleSubscriptionAdjustUsersRoute)
+	registerLoggedHandler(router, "/subscriptions/{id}/histories", r.handleSubscriptionHistoriesRoute)
+	registerLoggedHandler(router, "/subscription-histories", r.handleSubscriptionHistories)
 }
 
-func (r *SubscriptionRoutes) handleSubscriptions(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		r.handleSubscriptionList(w, req)
-	case http.MethodPost:
-		r.handleSubscriptionCreate(w, req)
-	default:
-		writeSubscriptionJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
-}
-
-func (r *SubscriptionRoutes) handleSubscriptionList(w http.ResponseWriter, req *http.Request) {
+func (r *SubscriptionRoutes) List(req *http.Request) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
-	items, err := service.FindList()
-	if err != nil {
-		writeSubscriptionJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	writeSubscriptionJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	return service.FindList()
 }
 
-func (r *SubscriptionRoutes) handleSubscriptionCreate(w http.ResponseWriter, req *http.Request) {
+func (r *SubscriptionRoutes) Create(req *http.Request, body []byte) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
 	var payload models.Subscription
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeSubscriptionJSONError(w, http.StatusBadRequest, "invalid json payload")
-		return
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
 	id, err := service.Create(payload)
 	if err != nil {
-		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
-	writeSubscriptionJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
+	return id, nil
 }
 
-func (r *SubscriptionRoutes) handleSubscriptionByID(w http.ResponseWriter, req *http.Request) {
+func (r *SubscriptionRoutes) FindByID(req *http.Request, id int64) (any, error) {
 	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return service.FindByID(id)
+}
+
+func (r *SubscriptionRoutes) Update(req *http.Request, id int64, body []byte) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	var payload models.Subscription
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	payload.ID = id
+	if err := service.Update(payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+func (r *SubscriptionRoutes) Delete(req *http.Request, id int64) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	if err := service.Delete(id); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+func (r *SubscriptionRoutes) handleSubscriptionAdjustUsersRoute(w http.ResponseWriter, req *http.Request) {
+	id, err := routeInt64Param(req, "id", "subscription")
 	if err != nil {
 		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	r.handleSubscriptionAdjustUsers(w, req, id)
+}
 
-	path := strings.TrimPrefix(req.URL.Path, "/subscriptions/")
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 || parts[0] == "" {
-		writeSubscriptionJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-
-	if parts[0] == "current" {
-		r.handleSubscriptionCurrent(w, req)
-		return
-	}
-	if parts[0] == "status" {
-		r.handleSubscriptionStatus(w, req)
-		return
-	}
-	if parts[0] == "payment-info" {
-		r.handleSubscriptionPaymentInfo(w, req)
-		return
-	}
-	if parts[0] == "payments" {
-		r.handleSubscriptionPayments(w, req)
-		return
-	}
-	if parts[0] == "generate-token" {
-		r.handleSubscriptionGenerateToken(w, req)
-		return
-	}
-	if parts[0] == "apply-token" {
-		r.handleSubscriptionApplyToken(w, req)
-		return
-	}
-	if parts[0] == "pay" {
-		r.handleSubscriptionPay(w, req)
-		return
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
+func (r *SubscriptionRoutes) handleSubscriptionHistoriesRoute(w http.ResponseWriter, req *http.Request) {
+	id, err := routeInt64Param(req, "id", "subscription")
 	if err != nil {
-		writeSubscriptionJSONError(w, http.StatusBadRequest, "invalid subscription id")
+		writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-
-	if len(parts) > 1 {
-		switch parts[1] {
-		case "adjust-users":
-			r.handleSubscriptionAdjustUsers(w, req, id)
-		case "histories":
-			r.handleSubscriptionHistoriesByID(w, req, id)
-		default:
-			writeSubscriptionJSONError(w, http.StatusNotFound, "not found")
-		}
-		return
-	}
-
-	switch req.Method {
-	case http.MethodGet:
-		item, err := service.FindByID(id)
-		if err != nil {
-			writeSubscriptionJSONError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeSubscriptionJSON(w, http.StatusOK, map[string]interface{}{"data": item})
-	case http.MethodPut:
-		var payload models.Subscription
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			writeSubscriptionJSONError(w, http.StatusBadRequest, "invalid json payload")
-			return
-		}
-		payload.ID = id
-		if err := service.Update(payload); err != nil {
-			writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeSubscriptionJSON(w, http.StatusOK, map[string]interface{}{"message": "updated"})
-	case http.MethodDelete:
-		if err := service.Delete(id); err != nil {
-			writeSubscriptionJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeSubscriptionJSON(w, http.StatusOK, map[string]interface{}{"message": "deleted"})
-	default:
-		writeSubscriptionJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
+	r.handleSubscriptionHistoriesByID(w, req, id)
 }
 
 func (r *SubscriptionRoutes) handleSubscriptionCurrent(w http.ResponseWriter, req *http.Request) {

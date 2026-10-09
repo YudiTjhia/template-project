@@ -8,6 +8,7 @@ import (
 
 	"backend/shared/models"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type AuthRoutes struct {
@@ -22,12 +23,12 @@ func NewAuthRoutes(accountService *services.AccountService, authService *service
 	}
 }
 
-func (r *AuthRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/auth/", r.handleAuth)
+func (r *AuthRoutes) Register(router chi.Router) {
+	registerLoggedHandler(router, "/auth/*", r.handleAuth)
 }
 
 func (r *AuthRoutes) handleAuth(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/auth/")
+	path := strings.TrimPrefix(req.URL.Path, "/auth/*")
 	path = strings.Trim(path, "/")
 	switch path {
 	case "login":
@@ -511,7 +512,7 @@ func (r *AuthRoutes) handleAccountDeviceLocation(w http.ResponseWriter, req *htt
 		return
 	}
 
-	service := services.NewAccountDeviceService(r.AuthService.DB, auth)
+	service := services.NewAccountDeviceServiceWithContext(req.Context(), r.AuthService.DB, auth)
 	item, err := service.UpdateLocation(strings.TrimSpace(payload.DeviceID), payload.LocationID)
 	if err != nil {
 		writeAuthJSONError(w, http.StatusBadRequest, err.Error())

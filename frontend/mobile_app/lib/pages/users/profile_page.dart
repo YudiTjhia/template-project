@@ -3,13 +3,16 @@ import 'package:flutter/material.dart';
 import '../../services/login_service.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/msg_box.dart';
+import '../../navigation/app_drawer_menu.dart';
 import '../login/login_page.dart';
 
 import 'package:mobile_app/models/profile_model.dart';
 import 'package:mobile_app/services/profile_service.dart';
 
 class ProfilePage extends StatefulWidget {
-  const ProfilePage({super.key});
+  const ProfilePage({super.key, this.enableDrawer = true});
+
+  final bool enableDrawer;
 
   @override
   State<ProfilePage> createState() => _ProfilePageState();
@@ -187,6 +190,9 @@ class _ProfilePageState extends State<ProfilePage> {
     return Scaffold(
       backgroundColor: AppTheme.pageBackgroundColor,
       appBar: AppBar(title: const Text('Profile')),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/profile')
+          : null,
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.all(20),

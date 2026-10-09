@@ -11,6 +11,17 @@ class AppConfig {
     return dotenv.env['BASE_URL'] ?? 'http://127.0.0.1:8080';
   }
 
+  static String get appTitle {
+    final title = dotenv.env['APP_TITLE']?.trim();
+    return title == null || title.isEmpty ? 'Open POS' : title;
+  }
+
+  static bool get useDummyUsers =>
+      (dotenv.env['USE_DUMMY_USERS'] ?? 'false').trim().toLowerCase() == 'true';
+
+  static bool get useDummyRoles =>
+      (dotenv.env['USE_DUMMY_ROLES'] ?? 'false').trim().toLowerCase() == 'true';
+
   static Future<String> get clientId =>
       _clientIdFuture ??= _loadOrCreateClientId();
 

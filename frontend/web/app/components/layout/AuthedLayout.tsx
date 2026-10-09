@@ -15,6 +15,7 @@ export type AuthedLayoutProps = {
   onLogout?: () => void;
   showHeader?: boolean;
   showNavigation?: boolean;
+  showCurrentUser?: boolean;
   navigationSide?: 'left' | 'right';
   subAppType?: SubAppType;
 };
@@ -26,6 +27,7 @@ export default function AuthedLayout({
   onLogout,
   showHeader = true,
   showNavigation = true,
+  showCurrentUser = true,
   navigationSide = 'left',
   subAppType = resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE),
 }: AuthedLayoutProps) {
@@ -73,7 +75,7 @@ export default function AuthedLayout({
   }
 
   const navigation = showNavigation ? (
-    <NavigationMenu side={navigationSide} onLogout={onLogout} subAppType={subAppType} />
+    <NavigationMenu side={navigationSide} onLogout={onLogout} subAppType={subAppType} showCurrentUser={showCurrentUser} />
   ) : null;
 
   return (

@@ -3,7 +3,7 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
-NETWORK_NAME=template_web_staging
+NETWORK_NAME=template_project_staging
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/.env}"
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Environment file tidak ditemukan: $ENV_FILE" >&2

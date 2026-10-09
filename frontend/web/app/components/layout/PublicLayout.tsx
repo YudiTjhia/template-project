@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useEffect, useState } from 'react';
 import { AppBar, Box, Button, CircularProgress, Stack, Toolbar, Typography } from '@mui/material';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import loginService from '@/app/services/LoginService';
 import { getSubAppPaths, resolveSubAppType, type SubAppType } from '@/app/helpers/subApp';
 
@@ -14,6 +14,7 @@ export type PublicLayoutProps = {
   loginHref?: string;
   registerHref?: string;
   showHeader?: boolean;
+  headerlessPaths?: string[];
   showLogin?: boolean;
   showRegister?: boolean;
   subAppType?: SubAppType;
@@ -26,12 +27,15 @@ export default function PublicLayout({
   loginHref = '/login',
   registerHref = '/account-register',
   showHeader = true,
+  headerlessPaths = [],
   showLogin = true,
   showRegister = true,
   subAppType = resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE),
 }: PublicLayoutProps) {
   const router = useRouter();
+  const pathname = usePathname();
   const [checking, setChecking] = useState(true);
+  const isHeaderlessPath = headerlessPaths.some((path) => pathname === path || pathname.endsWith(path));
 
   useEffect(() => {
     let active = true;
@@ -68,7 +72,7 @@ export default function PublicLayout({
 
   return (
     <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
-      {showHeader && (
+      {showHeader && !isHeaderlessPath && (
         <AppBar position="static" color="inherit" elevation={1}>
           <Toolbar>
             <Typography variant="h6" component="div" sx={{ flexGrow: 1, fontWeight: 600 }}>

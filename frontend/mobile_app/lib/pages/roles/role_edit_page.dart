@@ -3,14 +3,21 @@ import 'package:mobile_app/models/role_model.dart';
 import 'package:mobile_app/services/role_service.dart';
 import 'package:mobile_app/shared/widgets/edit_component.dart';
 import 'package:mobile_app/shared/widgets/edit_fields.dart';
+import 'package:mobile_app/navigation/app_drawer_menu.dart';
 
 import 'role_actions_lookup_dialog.dart';
 
 class RoleEditPage extends StatefulWidget {
-  const RoleEditPage({super.key, this.roleId, this.service});
+  const RoleEditPage({
+    super.key,
+    this.roleId,
+    this.service,
+    this.enableDrawer = true,
+  });
 
   final int? roleId;
   final RoleService? service;
+  final bool enableDrawer;
 
   @override
   State<RoleEditPage> createState() => _RoleEditPageState();
@@ -144,6 +151,9 @@ class _RoleEditPageState extends State<RoleEditPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(_isCreate ? 'Tambah Role' : 'Edit Role')),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/roles')
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null

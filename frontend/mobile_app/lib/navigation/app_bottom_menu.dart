@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../navigation/page_navigation.dart';
-import 'bottom_menu.dart';
+import '../shared/navigation/page_navigation.dart';
+import '../shared/widgets/bottom_menu.dart';
 
 class AppBottomMenu extends StatelessWidget {
   const AppBottomMenu({

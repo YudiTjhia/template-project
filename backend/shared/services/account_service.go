@@ -1,6 +1,7 @@
 package services
 
 import (
+	"context"
 	"crypto/rand"
 	"database/sql"
 	"errors"
@@ -12,6 +13,9 @@ import (
 	"time"
 
 	"backend/shared/helpers"
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -23,6 +27,7 @@ type AccountService struct {
 	DB            *sqlx.DB
 	TransactionDB *sqlx.DB
 	Auth          models.Auth
+	CRUD          interfaces.IService
 }
 
 func NewAccountService(db *sqlx.DB, auth models.Auth) *AccountService {
@@ -33,19 +38,47 @@ func NewAccountServiceWithDatabases(db, transactionDB *sqlx.DB, auth models.Auth
 	if transactionDB == nil {
 		transactionDB = db
 	}
-	return &AccountService{DB: db, TransactionDB: transactionDB, Auth: auth}
+	return &AccountService{DB: db, TransactionDB: transactionDB, Auth: auth, CRUD: impl.NewMService()}
 }
 
 func (s *AccountService) NewAccount() models.Account {
 	return models.NewAccount(s.DB, s.Auth)
 }
 
-func (s *AccountService) Migrate() {
-	s.NewAccount().Migrate()
+func (s *AccountService) accountMModel() *mmodels.AccountMModel {
+	model := mmodels.NewAccountMModel(context.Background(), s.DB)
+	model.AuthUserName = s.Auth.UserName
+	model.CreatedBy = s.Auth.UserName
+	return model
+}
+
+func (s *AccountService) accountFromMModel(value mmodels.AccountMModel) models.Account {
+	account := models.Account{
+		BaseModel: models.BaseModel{DB: s.DB, Auth: s.Auth, CreatedAt: value.CreatedAt, CreatedBy: value.CreatedBy},
+		ID:        value.ID, AccountName: value.AccountName, CompanyName: value.CompanyName,
+		CompanyLogoURL: value.CompanyLogoURL, IsActive: value.IsActive, AccountEmail: value.AccountEmail,
+		ReferralCode: value.ReferralCode, Address: value.Address, Latitude: value.Latitude,
+		Longitude: value.Longitude, MobilePhone: value.MobilePhone, Phone: value.Phone,
+		TermsAccepted: value.TermsAccepted, TermsVersion: value.TermsVersion, OTP: value.OTP,
+		TermsAcceptedAt: value.TermsAcceptedAt, OTPExpired: value.OTPExpired,
+	}
+	if value.UpdatedAt.Valid {
+		updatedAt := value.UpdatedAt.Time
+		account.UpdatedAt = &updatedAt
+	}
+	if value.UpdatedBy.Valid {
+		updatedBy := value.UpdatedBy.String
+		account.UpdatedBy = &updatedBy
+	}
+	return account
+}
+
+func (s *AccountService) Migrate() error {
+	return s.accountMModel().Migrate()
 }
 
 func (s *AccountService) CreateAccount(account models.Account) (int64, error) {
-	acc := s.NewAccount()
+	acc := s.accountMModel()
 	acc.AccountName = account.AccountName
 	acc.CompanyName = account.CompanyName
 	acc.CompanyLogoURL = account.CompanyLogoURL
@@ -57,6 +90,9 @@ func (s *AccountService) CreateAccount(account models.Account) (int64, error) {
 	acc.Longitude = account.Longitude
 	acc.MobilePhone = account.MobilePhone
 	acc.Phone = account.Phone
+	acc.TermsAccepted = account.TermsAccepted
+	acc.TermsAcceptedAt = account.TermsAcceptedAt
+	acc.TermsVersion = account.TermsVersion
 	acc.OTP = account.OTP
 	acc.OTPExpired = account.OTPExpired
 	acc.CreatedBy = account.CreatedBy
@@ -296,7 +332,7 @@ func (s *AccountService) upsertRegistrationUser(account models.Account) (*models
 }
 
 func (s *AccountService) UpdateAccount(account models.Account) error {
-	acc := s.NewAccount()
+	acc := s.accountMModel()
 	acc.ID = account.ID
 	acc.AccountName = account.AccountName
 	acc.CompanyName = account.CompanyName
@@ -311,7 +347,9 @@ func (s *AccountService) UpdateAccount(account models.Account) error {
 	acc.Phone = account.Phone
 	acc.OTP = account.OTP
 	acc.OTPExpired = account.OTPExpired
-	acc.UpdatedBy = account.UpdatedBy
+	if account.UpdatedBy != nil {
+		acc.UpdatedBy = sql.NullString{String: *account.UpdatedBy, Valid: true}
+	}
 	return acc.Update()
 }
 
@@ -387,8 +425,7 @@ func (s *AccountService) VerifyAccountRegistration(otp string) (*models.Account,
 		return nil, nil, errors.New("otp wajib diisi")
 	}
 
-	acc := s.NewAccount()
-	account, err := acc.FindByOTP(otp)
+	account, err := s.findAccountByOTP(otp)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return nil, nil, errors.New("otp tidak ditemukan atau sudah dipakai")
@@ -493,13 +530,10 @@ func (s *AccountService) GenerateAccountOTP(id int64) (string, error) {
 		return "", errors.New("id account tidak valid")
 	}
 
-	acc := s.NewAccount()
-	acc.ID = id
-	found, err := acc.FindByID()
+	found, err := s.FindByID(id)
 	if err != nil {
 		return "", err
 	}
-	acc = *found
 
 	otp, err := s.generateUniqueRegisterOTP(id)
 	if err != nil {
@@ -507,13 +541,13 @@ func (s *AccountService) GenerateAccountOTP(id int64) (string, error) {
 	}
 
 	expired := time.Now().UTC().Add(15 * time.Minute)
-	acc.OTP = otp
-	acc.OTPExpired = &expired
-	if err := acc.Update(); err != nil {
+	found.OTP = otp
+	found.OTPExpired = &expired
+	if err := s.UpdateAccount(*found); err != nil {
 		return "", err
 	}
 
-	s.sendRegisterOTPEmailAsync(acc, otp, expired)
+	s.sendRegisterOTPEmailAsync(*found, otp, expired)
 
 	return otp, nil
 }
@@ -555,21 +589,38 @@ func (s *AccountService) Update(account models.Account) error {
 }
 
 func (s *AccountService) Delete(id int64) error {
-	acc := s.NewAccount()
+	acc := s.accountMModel()
 	acc.ID = id
 	return acc.Delete()
 }
 
 func (s *AccountService) FindByID(id int64) (*models.Account, error) {
-	acc := s.NewAccount()
+	acc := s.accountMModel()
 	acc.ID = id
-	return acc.FindByID()
+	found, err := acc.FindByID()
+	if err != nil {
+		return nil, err
+	}
+	account := s.accountFromMModel(*found)
+	return &account, nil
 }
 
 func (s *AccountService) FindByEmail(email string) (*models.Account, error) {
-	acc := s.NewAccount()
-	acc.AccountEmail = email
-	return acc.FindByEmail()
+	found, err := s.accountMModel().FindByEmail_(email)
+	if err != nil {
+		return nil, err
+	}
+	account := s.accountFromMModel(*found)
+	return &account, nil
+}
+
+func (s *AccountService) findAccountByOTP(otp string) (*models.Account, error) {
+	found, err := s.accountMModel().FindByOTP_(otp)
+	if err != nil {
+		return nil, err
+	}
+	account := s.accountFromMModel(*found)
+	return &account, nil
 }
 
 var errUserNotFound = errors.New("user tidak ditemukan")
@@ -602,15 +653,32 @@ func (s *AccountService) FindUserByAccountAndCredentials(email, mobilephone stri
 }
 
 func (s *AccountService) FindList(search string) ([]models.Account, error) {
-	return s.NewAccount().FindList(search)
+	return s.findAccounts(search, "account_name", "ASC", 50)
 }
 
 func (s *AccountService) FindAll() ([]models.Account, error) {
-	return s.NewAccount().FindAll()
+	return s.findAccounts("", "account_name", "ASC", 0)
 }
 
 func (s *AccountService) FindRecentList(limit int, search string) ([]models.Account, error) {
-	return s.NewAccount().FindRecentList(limit, search)
+	if limit <= 0 {
+		limit = 5
+	}
+	return s.findAccounts(search, "created_at,id", "DESC", limit)
+}
+
+func (s *AccountService) findAccounts(search, orderBy, direction string, limit int) ([]models.Account, error) {
+	model := s.accountMModel()
+	rows := make([]mmodels.AccountMModel, 0)
+	if err := s.CRUD.FindList_(model, &rows, nil, search,
+		[]string{"account_name", "company_name", "account_email", "address", "mobilephone", "phone"}, orderBy, direction, limit); err != nil {
+		return nil, err
+	}
+	accounts := make([]models.Account, 0, len(rows))
+	for _, row := range rows {
+		accounts = append(accounts, s.accountFromMModel(row))
+	}
+	return accounts, nil
 }
 
 func validateRegisterPassword(password, confirmPassword string) error {
@@ -779,7 +847,7 @@ func (s *AccountService) generateUniqueRegisterOTP(excludeAccountID int64) (stri
 			return "", err
 		}
 
-		account, err := s.NewAccount().FindByOTP(otp)
+		account, err := s.findAccountByOTP(otp)
 		if err != nil {
 			if strings.Contains(strings.ToLower(err.Error()), "no rows") {
 				return otp, nil

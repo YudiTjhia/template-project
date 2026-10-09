@@ -1,0 +1,207 @@
+package impl
+
+import (
+	"context"
+	"database/sql"
+	"errors"
+	"fmt"
+	"regexp"
+	"strings"
+
+	"backend/shared/metadata/interfaces"
+)
+
+// SQLExecutor is the small part of a database connection needed by MMigrator.
+// *sqlx.DB and *sqlx.Tx both satisfy this interface.
+type SQLExecutor interface {
+	Exec(query string, args ...any) (sql.Result, error)
+}
+
+type MMigrator struct {
+	model    interfaces.IMModel
+	executor SQLExecutor
+	ctx      context.Context
+}
+
+var (
+	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
+	sqlTypePattern    = regexp.MustCompile(`^[A-Z][A-Z0-9_]*(\([0-9]+(,[0-9]+)?\))?(\[\])?$`)
+	characterType     = regexp.MustCompile(`^(CHARACTER VARYING|VARCHAR|CHARACTER|CHAR)(\([0-9]+\))?$`)
+)
+
+func NewMMigrator(model interfaces.IMModel, executor SQLExecutor) *MMigrator {
+	return &MMigrator{model: model, executor: executor, ctx: context.Background()}
+}
+
+func (m *MMigrator) SetContext(ctx context.Context) {
+	if m != nil && ctx != nil {
+		m.ctx = ctx
+	}
+}
+
+func validateModelMetadata(model interfaces.IMModel) error {
+	if model == nil {
+		return errors.New("migration model is nil")
+	}
+	tableName := strings.TrimSpace(model.GetTableName())
+	if !identifierPattern.MatchString(tableName) {
+		return fmt.Errorf("invalid table name %q", tableName)
+	}
+	fields := model.GetFields()
+	if len(fields) == 0 {
+		return fmt.Errorf("model %q has no fields", model.GetName())
+	}
+
+	seen := make(map[string]struct{}, len(fields))
+	primaryKeys := 0
+	for _, field := range fields {
+		if field == nil {
+			return errors.New("model contains a nil field")
+		}
+		name := fieldColumnName(field)
+		if !identifierPattern.MatchString(name) {
+			return fmt.Errorf("invalid column name %q", name)
+		}
+		if _, exists := seen[name]; exists {
+			return fmt.Errorf("duplicate column name %q", name)
+		}
+		seen[name] = struct{}{}
+
+		typeName := databaseTypeForField(field)
+		typ := strings.ToUpper(strings.TrimSpace(typeName))
+		if field.GetMaxLength() < 0 {
+			return fmt.Errorf("maximum length for column %q cannot be negative", name)
+		}
+		if field.GetMinLength() < 0 {
+			return fmt.Errorf("minimum length for column %q cannot be negative", name)
+		}
+		if field.GetMinLength() > 0 && field.GetMaxLength() > 0 && field.GetMinLength() > field.GetMaxLength() {
+			return fmt.Errorf("minimum length for column %q exceeds its maximum length", name)
+		}
+		if field.GetExactLength() < 0 {
+			return fmt.Errorf("exact length for column %q cannot be negative", name)
+		}
+		if field.GetExactLength() > 0 && ((field.GetMinLength() > 0 && field.GetExactLength() < field.GetMinLength()) || (field.GetMaxLength() > 0 && field.GetExactLength() > field.GetMaxLength())) {
+			return fmt.Errorf("exact length for column %q conflicts with its minimum or maximum length", name)
+		}
+		if field.GetIsPrimaryKey() && field.GetIsNullable() {
+			return fmt.Errorf("primary key column %q cannot be nullable", name)
+		}
+		if (field.GetMinLength() > 0 || field.GetMaxLength() > 0 || field.GetExactLength() > 0 || strings.TrimSpace(field.GetPattern()) != "") && !isTextField(field) {
+			return fmt.Errorf("text validation metadata is only valid for text column %q", name)
+		}
+		if (field.GetIsEmail() || field.GetIsPhone() || field.GetIsPassword()) && !isTextField(field) {
+			return fmt.Errorf("email, phone, and password validation require text column %q", name)
+		}
+		if pattern := strings.TrimSpace(field.GetPattern()); pattern != "" {
+			if _, err := regexp.Compile(pattern); err != nil {
+				return fmt.Errorf("invalid pattern for column %q: %w", name, err)
+			}
+		}
+		if !sqlTypePattern.MatchString(typ) {
+			return fmt.Errorf("invalid database type %q for column %q", typeName, name)
+		}
+		if field.GetIsIdentity() && typ != "SMALLINT" && typ != "INTEGER" && typ != "BIGINT" {
+			return fmt.Errorf("identity column %q must use SMALLINT, INTEGER, or BIGINT", name)
+		}
+		if field.GetIsPrimaryKey() {
+			primaryKeys++
+		}
+	}
+	if primaryKeys > 1 {
+		return errors.New("composite primary keys are not supported; mark one field as primary key")
+	}
+	return nil
+}
+
+func (m *MMigrator) Migrate() error {
+	if m == nil {
+		return errors.New("migrator is nil")
+	}
+	if m.model == nil {
+		return errors.New("migration model is nil")
+	}
+	if m.executor == nil {
+		return errors.New("migration executor is nil")
+	}
+
+	if err := validateModelMetadata(m.model); err != nil {
+		return err
+	}
+	tableName := strings.TrimSpace(m.model.GetTableName())
+	fields := m.model.GetFields()
+
+	columns := make([]string, 0, len(fields))
+	for _, field := range fields {
+		name := fieldColumnName(field)
+		typeName := databaseTypeForField(field)
+		typ := strings.ToUpper(strings.TrimSpace(typeName))
+		if field.GetMaxLength() > 0 {
+			if matches := characterType.FindStringSubmatch(typ); matches != nil {
+				typ = fmt.Sprintf("%s(%d)", matches[1], field.GetMaxLength())
+			}
+		}
+		column := fmt.Sprintf("%q %s", name, typ)
+		if field.GetIsIdentity() {
+			column += " GENERATED BY DEFAULT AS IDENTITY"
+		}
+		if field.GetIsPrimaryKey() {
+			column += " PRIMARY KEY"
+		}
+		if field.GetRequired() || !field.GetIsNullable() || field.GetIsPrimaryKey() || field.GetIsIdentity() {
+			column += " NOT NULL"
+		}
+		if defaultValue := defaultForField(field); defaultValue != "" {
+			column += " DEFAULT " + defaultValue
+		}
+		columns = append(columns, column)
+	}
+	query := fmt.Sprintf("CREATE TABLE IF NOT EXISTS %q (%s)", tableName, strings.Join(columns, ", "))
+	var err error
+	if contextual, ok := m.executor.(interface {
+		ExecContext(context.Context, string, ...any) (sql.Result, error)
+	}); ok {
+		_, err = contextual.ExecContext(m.ctx, query)
+	} else {
+		_, err = m.executor.Exec(query)
+	}
+	if err != nil {
+		return fmt.Errorf("create table %q: %w", tableName, err)
+	}
+	return nil
+}
+
+func databaseTypeForField(field interfaces.IMField) string {
+	if field.GetIsPrimaryKey() && !field.GetIsIdentity() {
+		return "UUID"
+	}
+	typeName := strings.TrimSpace(field.GetDbType())
+	if typeName == "" {
+		typeName = field.GetType()
+	}
+	return typeName
+}
+
+func defaultForField(field interfaces.IMField) string {
+	if field.GetIsPrimaryKey() && !field.GetIsIdentity() {
+		if value := strings.TrimSpace(field.GetDefault()); value != "" && value != "gen_random_uuid()" {
+			return value
+		}
+		return "gen_random_uuid()"
+	}
+	return strings.TrimSpace(field.GetDefault())
+}
+
+func (m *MMigrator) SetModel(model interfaces.IMModel) {
+	if m != nil {
+		m.model = model
+	}
+}
+
+func (m *MMigrator) SetExecutor(executor SQLExecutor) {
+	if m != nil {
+		m.executor = executor
+	}
+}
+
+var _ interfaces.IMMigrator = (*MMigrator)(nil)

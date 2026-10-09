@@ -1,11 +1,15 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -15,6 +19,7 @@ type UserService struct {
 	DB            *sqlx.DB
 	TransactionDB *sqlx.DB
 	Auth          models.Auth
+	CRUD          interfaces.IService
 }
 
 func NewUserService(db *sqlx.DB, auth models.Auth) *UserService {
@@ -25,7 +30,34 @@ func NewUserServiceWithDatabases(db, transactionDB *sqlx.DB, auth models.Auth) *
 	if transactionDB == nil {
 		transactionDB = db
 	}
-	return &UserService{DB: db, TransactionDB: transactionDB, Auth: auth}
+	return &UserService{DB: db, TransactionDB: transactionDB, Auth: auth, CRUD: impl.NewMService()}
+}
+
+func (s *UserService) userMModel() *mmodels.UserMModel {
+	model := mmodels.NewUserMModel(context.Background(), s.DB)
+	model.AccountID = s.Auth.AccountID
+	model.AuthAccountID = s.Auth.AccountID
+	model.AuthUserName = s.Auth.UserName
+	return model
+}
+
+func (s *UserService) userFromMModel(value mmodels.UserMModel) models.User {
+	user := models.User{
+		BaseModel: models.BaseModel{DB: s.DB, Auth: s.Auth, CreatedAt: value.CreatedAt, CreatedBy: value.CreatedBy},
+		ID:        value.ID, AccountID: value.AccountID, UserEmail: value.UserEmail,
+		MobilePhone: value.MobilePhone, UserPassword: value.UserPassword, PIN: value.PIN,
+		UserType: value.UserType, LoginType: value.LoginType, UserRoles: models.StringArray(value.UserRoles),
+		IsActive: value.IsActive, Username: value.Username,
+	}
+	if value.UpdatedAt.Valid {
+		updatedAt := value.UpdatedAt.Time
+		user.UpdatedAt = &updatedAt
+	}
+	if value.UpdatedBy.Valid {
+		updatedBy := value.UpdatedBy.String
+		user.UpdatedBy = &updatedBy
+	}
+	return user
 }
 
 func (s *UserService) NewUser() models.User {
@@ -212,9 +244,14 @@ func (s *UserService) Delete(id int64) error {
 }
 
 func (s *UserService) FindByID(id int64) (*models.User, error) {
-	u := s.NewUser()
-	u.ID = id
-	return u.FindByID()
+	model := s.userMModel()
+	model.ID = id
+	var result mmodels.UserMModel
+	if err := s.CRUD.FindByID_(model, &result, "id", "account_id"); err != nil {
+		return nil, err
+	}
+	user := s.userFromMModel(result)
+	return &user, nil
 }
 
 func (s *UserService) FindByEmail(email string) (*models.User, error) {
@@ -230,15 +267,33 @@ func (s *UserService) FindByUsername(username string) (*models.User, error) {
 }
 
 func (s *UserService) FindList(search string) ([]models.User, error) {
-	return s.NewUser().FindList(search)
+	return s.findUsers(search, "username", "ASC", 50)
 }
 
 func (s *UserService) FindAll() ([]models.User, error) {
-	return s.NewUser().FindAll()
+	return s.findUsers("", "username", "ASC", 0)
 }
 
 func (s *UserService) FindRecentList(limit int, search string) ([]models.User, error) {
-	return s.NewUser().FindRecentList(limit, search)
+	if limit <= 0 {
+		limit = 5
+	}
+	return s.findUsers(search, "created_at,id", "DESC", limit)
+}
+
+func (s *UserService) findUsers(search, orderBy, direction string, limit int) ([]models.User, error) {
+	model := s.userMModel()
+	rows := make([]mmodels.UserMModel, 0)
+	if err := s.CRUD.FindList_(model, &rows,
+		map[string]any{"account_id": s.Auth.AccountID}, search,
+		[]string{"user_email", "mobilephone", "username"}, orderBy, direction, limit); err != nil {
+		return nil, err
+	}
+	users := make([]models.User, 0, len(rows))
+	for _, row := range rows {
+		users = append(users, s.userFromMModel(row))
+	}
+	return users, nil
 }
 
 func (s *UserService) CountActiveUsers(accountID int64) (int, error) {

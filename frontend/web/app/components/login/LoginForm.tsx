@@ -53,6 +53,7 @@ export default function LoginForm({
     <EditCenter
       title="Masuk"
       description="Masuk ke akun Anda untuk melanjutkan."
+      panelSx={{ border: 0, bgcolor: 'common.white', boxShadow: 'none' }}
       fields={fields}
       loading={loading}
       error={error}

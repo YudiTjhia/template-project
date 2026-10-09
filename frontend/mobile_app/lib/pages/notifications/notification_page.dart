@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:mobile_app/models/notification_model.dart';
 import 'package:mobile_app/services/notification_api_service.dart';
 
+import '../../navigation/app_drawer_menu.dart';
+
 class NotificationPage extends StatefulWidget {
-  const NotificationPage({super.key, this.service});
+  const NotificationPage({super.key, this.service, this.enableDrawer = true});
 
   final NotificationApiService? service;
+  final bool enableDrawer;
 
   @override
   State<NotificationPage> createState() => _NotificationPageState();
@@ -117,6 +120,9 @@ class _NotificationPageState extends State<NotificationPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Notifikasi')),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/notifications')
+          : null,
       body: _buildBody(),
     );
   }

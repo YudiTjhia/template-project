@@ -16,9 +16,9 @@ services:
       - "${BACKEND_PORT:-31007}:8080"
     restart: unless-stopped
     networks:
-      - template_web_dev
+      - template_project_dev
 
 networks:
-  template_web_dev:
-    name: template_web_dev
+  template_project_dev:
+    name: template_project_dev
     external: true

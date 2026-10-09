@@ -54,12 +54,12 @@ func TestMain(m *testing.M) {
 	models.NewUser(accountDB, models.Auth{AccountID: 7, UserName: "alice"}).Migrate()
 	models.NewRole(accountDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
 	models.NewAuth(accountDB).Migrate()
-	models.NewSupplier(accountDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"}).Migrate()
+	
 	_, _ = accountDB.Exec(`TRUNCATE TABLE accounts RESTART IDENTITY CASCADE`)
 	_, _ = accountDB.Exec(`TRUNCATE TABLE users RESTART IDENTITY CASCADE`)
 	_, _ = accountDB.Exec(`TRUNCATE TABLE roles RESTART IDENTITY CASCADE`)
 	_, _ = accountDB.Exec(`TRUNCATE TABLE auths RESTART IDENTITY CASCADE`)
-	_, _ = accountDB.Exec(`TRUNCATE TABLE suppliers RESTART IDENTITY CASCADE`)
+	
 
 	code := m.Run()
 

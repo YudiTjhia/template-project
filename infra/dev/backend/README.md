@@ -8,4 +8,4 @@ infra/dev/db/docker-build.sh up
 infra/dev/backend/docker-build.sh up
 ```
 
-Backend tersedia pada port `31007` secara default dan health endpoint di `/healthz`. Compose backend dan database berbagi network `template_web_dev`; kedua DSN diarahkan ke host `db`.
+Backend tersedia pada port `31007` secara default dan health endpoint di `/healthz`. Compose backend dan database berbagi network `template_project_dev`; kedua DSN diarahkan ke host `db`.

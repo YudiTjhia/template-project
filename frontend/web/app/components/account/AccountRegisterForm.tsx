@@ -96,6 +96,7 @@ export default function AccountRegisterForm({
     <EditCenter
       title="Buat akun"
       description="Daftar untuk mulai menggunakan layanan."
+      panelSx={{ border: 0, bgcolor: 'common.white', boxShadow: 'none' }}
       fields={fields}
       loading={loading}
       error={validationError ?? error}

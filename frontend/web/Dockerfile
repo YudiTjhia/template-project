@@ -1,11 +1,11 @@
 # syntax=docker/dockerfile:1
 
-FROM node:20-alpine AS dependencies
+FROM node:24-alpine AS dependencies
 WORKDIR /app
 COPY package.json package-lock.json ./
-RUN npm ci
+RUN --mount=type=cache,target=/root/.npm npm ci --fetch-retries=5 --maxsockets=1
 
-FROM node:20-alpine AS builder
+FROM node:24-alpine AS builder
 WORKDIR /app
 ARG SUB_APP_TYPE=admin
 ARG ADMIN_API_BASE_URL=
@@ -22,6 +22,7 @@ ARG NEXT_PUBLIC_FIREBASE_APP_ID=
 ARG NEXT_PUBLIC_FIREBASE_VAPID_KEY=
 ENV NEXT_TELEMETRY_DISABLED=1 \
     SUB_APP_TYPE=${SUB_APP_TYPE} \
+    NEXT_PUBLIC_SUB_APP_TYPE=${SUB_APP_TYPE} \
     ADMIN_API_BASE_URL=${ADMIN_API_BASE_URL} \
     CUSTOMER_API_BASE_URL=${CUSTOMER_API_BASE_URL} \
     NEXT_PUBLIC_API_BASE_URL=${NEXT_PUBLIC_API_BASE_URL} \
@@ -38,7 +39,7 @@ COPY --from=dependencies /app/node_modules ./node_modules
 COPY . .
 RUN mkdir -p public && npm run build
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \

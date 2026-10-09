@@ -4,16 +4,19 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
 	"backend/shared/models"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type UserRoutes struct {
 	Service *services.UserService
 }
+
+var _ interfaces.ICRUDRouteOperations = (*UserRoutes)(nil)
 
 type userRequest struct {
 	models.User
@@ -24,23 +27,16 @@ func NewUserRoutes(service *services.UserService) *UserRoutes {
 	return &UserRoutes{Service: service}
 }
 
-func (r *UserRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/users", r.handleUsers)
-	mux.HandleFunc("/users/", r.handleUserByID)
-	mux.HandleFunc("/users/email/", r.handleUserByEmail)
-	mux.HandleFunc("/users/username/", r.handleUserByUsername)
-	mux.HandleFunc("/users/recent", r.handleUserRecent)
-}
-
-func (r *UserRoutes) handleUsers(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		r.handleUserList(w, req)
-	case http.MethodPost:
-		r.handleUserCreate(w, req)
-	default:
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+func (r *UserRoutes) Register(router chi.Router) error {
+	if err := impl.NewMRoutes().RegisterRoutes(loggedRouteRegistrar{router}, "/users", r); err != nil {
+		return err
 	}
+	registerLoggedHandler(router, "/users/recent", r.handleUserRecent)
+	registerLoggedHandler(router, "/users/email/{email}", r.handleUserByEmail)
+	registerLoggedHandler(router, "/users/username/{username}", r.handleUserByUsername)
+	registerLoggedHandler(router, "/users/{id}/profile", r.handleUserProfileRoute)
+	registerLoggedHandler(router, "/users/{id}/activate", r.handleUserActivateRoute)
+	return nil
 }
 
 func (r *UserRoutes) handleUserRecent(w http.ResponseWriter, req *http.Request) {
@@ -55,7 +51,11 @@ func (r *UserRoutes) handleUserRecent(w http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	limit, _ := strconv.Atoi(req.URL.Query().Get("limit"))
+	limit, err := queryInt(req, "limit", 0)
+	if err != nil {
+		writeUserJSONError(w, http.StatusBadRequest, err.Error())
+		return
+	}
 	search := req.URL.Query().Get("search")
 
 	items, err := service.FindRecentList(limit, search)
@@ -67,15 +67,17 @@ func (r *UserRoutes) handleUserRecent(w http.ResponseWriter, req *http.Request) 
 	writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": items})
 }
 
-func (r *UserRoutes) handleUserList(w http.ResponseWriter, req *http.Request) {
+func (r *UserRoutes) List(req *http.Request) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 
 	search := req.URL.Query().Get("search")
-	includeAll := req.URL.Query().Get("all") == "1" || strings.EqualFold(req.URL.Query().Get("all"), "true")
+	includeAll, err := queryBool(req, "all")
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
 
 	var items []models.User
 	if includeAll {
@@ -84,119 +86,97 @@ func (r *UserRoutes) handleUserList(w http.ResponseWriter, req *http.Request) {
 		items, err = service.FindList(search)
 	}
 	if err != nil {
-		writeUserJSONError(w, http.StatusInternalServerError, err.Error())
-		return
+		return nil, err
 	}
-
-	writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	return items, nil
 }
 
-func (r *UserRoutes) handleUserCreate(w http.ResponseWriter, req *http.Request) {
-	if req.Method != http.MethodPost {
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-		return
-	}
-
+func (r *UserRoutes) Create(req *http.Request, body []byte) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 
 	var request userRequest
-	if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
-		return
+	if err := decodeJSONBytes(body, &request); err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
 	payload := request.User
 	payload.UserPassword = request.Password
 
 	id, err := service.Create(payload)
 	if err != nil {
-		writeUserJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
-	writeUserJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
+	return id, nil
 }
 
-func (r *UserRoutes) handleUserByID(w http.ResponseWriter, req *http.Request) {
+func (r *UserRoutes) FindByID(req *http.Request, id int64) (any, error) {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	user, err := service.FindByID(id)
+	if err != nil {
+		return nil, err
+	}
+	return user, nil
+}
+
+func (r *UserRoutes) Update(req *http.Request, id int64, body []byte) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	var request userRequest
+	if err := decodeJSONBytes(body, &request); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	payload := request.User
+	payload.UserPassword = request.Password
+	payload.ID = id
+	if err := service.Update(payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+func (r *UserRoutes) Delete(req *http.Request, id int64) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	if err := service.Delete(id); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+func userRouteID(req *http.Request) (int64, error) {
+	return routeInt64Param(req, "id", "user")
+}
+
+func (r *UserRoutes) handleUserProfileRoute(w http.ResponseWriter, req *http.Request) {
+	id, err := userRouteID(req)
+	if err != nil {
+		writeUserJSONError(w, http.StatusBadRequest, "invalid user id")
+		return
+	}
 	service, err := r.serviceForRequest(req)
 	if err != nil {
 		writeUserJSONError(w, http.StatusBadRequest, err.Error())
 		return
 	}
+	r.handleUserProfileUpdate(w, req, id, service)
+}
 
-	path := strings.TrimPrefix(req.URL.Path, "/users/")
-	if path == "" {
-		writeUserJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 || parts[0] == "" {
-		writeUserJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-
-	if parts[0] == "email" {
-		r.handleUserByEmail(w, req)
-		return
-	}
-	if parts[0] == "username" {
-		r.handleUserByUsername(w, req)
-		return
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
+func (r *UserRoutes) handleUserActivateRoute(w http.ResponseWriter, req *http.Request) {
+	id, err := userRouteID(req)
 	if err != nil {
 		writeUserJSONError(w, http.StatusBadRequest, "invalid user id")
 		return
 	}
-
-	if len(parts) > 1 {
-		switch parts[1] {
-		case "profile":
-			r.handleUserProfileUpdate(w, req, id, service)
-		case "activate":
-			r.handleUserActivate(w, req, id)
-		default:
-			writeUserJSONError(w, http.StatusNotFound, "not found")
-		}
-		return
-	}
-
-	switch req.Method {
-	case http.MethodGet:
-		user, err := service.FindByID(id)
-		if err != nil {
-			writeUserJSONError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeUserJSON(w, http.StatusOK, map[string]interface{}{"data": user})
-	case http.MethodPut:
-		var request userRequest
-		if err := json.NewDecoder(req.Body).Decode(&request); err != nil {
-			writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
-			return
-		}
-		payload := request.User
-		payload.UserPassword = request.Password
-		payload.ID = id
-		if err := service.Update(payload); err != nil {
-			writeUserJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeUserJSON(w, http.StatusOK, map[string]interface{}{"message": "updated"})
-	case http.MethodDelete:
-		if err := service.Delete(id); err != nil {
-			writeUserJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeUserJSON(w, http.StatusOK, map[string]interface{}{"message": "deleted"})
-	default:
-		writeUserJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
+	r.handleUserActivate(w, req, id)
 }
 
 func (r *UserRoutes) handleUserProfileUpdate(
@@ -214,7 +194,7 @@ func (r *UserRoutes) handleUserProfileUpdate(
 		Username string `json:"username"`
 		Email    string `json:"email"`
 	}
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
+	if err := decodeJSONRequest(req, &payload); err != nil {
 		writeUserJSONError(w, http.StatusBadRequest, "invalid json payload")
 		return
 	}
@@ -258,8 +238,7 @@ func (r *UserRoutes) handleUserByEmail(w http.ResponseWriter, req *http.Request)
 		return
 	}
 
-	email := strings.TrimPrefix(req.URL.Path, "/users/email/")
-	email = strings.Trim(email, "/")
+	email := routeParam(req, "email")
 	if email == "" {
 		writeUserJSONError(w, http.StatusBadRequest, "invalid user email")
 		return
@@ -286,8 +265,7 @@ func (r *UserRoutes) handleUserByUsername(w http.ResponseWriter, req *http.Reque
 		return
 	}
 
-	username := strings.TrimPrefix(req.URL.Path, "/users/username/")
-	username = strings.Trim(username, "/")
+	username := routeParam(req, "username")
 	if username == "" {
 		writeUserJSONError(w, http.StatusBadRequest, "invalid username")
 		return

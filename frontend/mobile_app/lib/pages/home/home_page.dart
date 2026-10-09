@@ -1,26 +1,37 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/navigation/page_navigation.dart';
+import '../../config/app_config.dart';
 import '../../shared/theme/app_theme.dart';
-import '../../shared/widgets/app_bottom_menu.dart';
+import '../../navigation/app_drawer_menu.dart';
+import '../../navigation/app_bottom_menu.dart';
 import '../../shared/widgets/bottom_menu.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({
     super.key,
+    this.appTitle,
     this.useBottomMenu = true,
+    this.enableDrawer = true,
     this.items = AppBottomMenu.defaultItems,
     this.onMenuSelected,
   });
 
+  final String? appTitle;
   final bool useBottomMenu;
+  final bool enableDrawer;
   final List<MenuItem> items;
   final ValueChanged<MenuItem>? onMenuSelected;
 
   @override
   Widget build(BuildContext context) {
+    final title = appTitle ?? AppConfig.appTitle;
     return Scaffold(
       backgroundColor: AppTheme.pageBackgroundColor,
+      appBar: AppBar(title: Text(title)),
+      drawer: enableDrawer
+          ? AppDrawerMenu(selectedRoute: '/home', headerTitle: title)
+          : null,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
@@ -31,7 +42,7 @@ class HomePage extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'POS Mobile',
+                      title,
                       style: Theme.of(context).textTheme.headlineSmall
                           ?.copyWith(
                             color: const Color(0xFF101828),

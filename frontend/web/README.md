@@ -1,5 +1,36 @@
 # Frontend Web
 
+Aplikasi web Next.js 15 dengan React 19 dan TypeScript. Source halaman, API routes, komponen, serta service berada di `app/`.
+
+## Menjalankan lokal
+
+Dari direktori `frontend/web/`:
+
+```bash
+npm ci
+npm run dev
+```
+
+Buka `http://localhost:3000`. Buat file `.env` lokal (diabaikan Git) dan isi setidaknya URL backend serta jenis sub-app:
+
+```dotenv
+SUB_APP_TYPE=admin
+ADMIN_API_BASE_URL=http://localhost:8080
+CUSTOMER_API_BASE_URL=http://localhost:8080
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8080
+```
+
+`SUB_APP_TYPE` memilih `admin` atau `customer` dan menentukan prefix route yang terlihat (`/admin/...` atau `/customer/...`). Variabel `NEXT_PUBLIC_*` tertanam di build browser; jangan taruh credential privat di dalamnya. Untuk menjalankan web, lihat juga [panduan infra development](../../infra/dev/frontend/README.md).
+
+## Build
+
+```bash
+npm run build
+npm run start
+```
+
+Container production dibangun dengan `Dockerfile`. Konfigurasi environment untuk Compose development, VM staging, dan Cloud Run dijelaskan di [README infra](../../infra/README.md) serta README masing-masing deployment.
+
 ## Firebase Web Messaging
 
 Set these values in `frontend/web/.env` for local Next.js development. For Docker and Cloud Run builds, set the same values in the matching `infra/**/frontend/.env`; the build configuration passes them into Next.js.

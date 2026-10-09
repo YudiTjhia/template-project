@@ -4,7 +4,7 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 COMPOSE_FILE="$SCRIPT_DIR/docker-compose.yml"
 ENV_FILE="${ENV_FILE:-$SCRIPT_DIR/.env}"
-NETWORK_NAME=template_web_staging
+NETWORK_NAME=template_project_staging
 if [[ ! -f "$ENV_FILE" ]]; then
   echo "Environment file tidak ditemukan: $ENV_FILE" >&2
   echo "Buat file .env dan atur password staging sebelum menjalankan script ini." >&2

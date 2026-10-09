@@ -5,8 +5,8 @@ export function resolveSubAppType(value: string | undefined): SubAppType {
 }
 
 const subAppPaths: Record<SubAppType, { prefix: string; login: string; register: string; home: string }> = {
-  admin: { prefix: '/admin', login: '/admin/login', register: '/admin/account-register', home: '/admin' },
-  customer: { prefix: '/customer', login: '/customer/login', register: '/customer/account-register', home: '/customer' },
+  admin: { prefix: '/admin', login: '/admin/login', register: '/admin/account-register', home: '/admin/users' },
+  customer: { prefix: '/customer', login: '/customer/login', register: '/customer/account-register', home: '/customer/users' },
 };
 
 export function getSubAppPaths(subAppType: SubAppType) {

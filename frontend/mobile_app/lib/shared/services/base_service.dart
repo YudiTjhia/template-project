@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 import 'package:http/http.dart' as http;
 
 import '../helpers/session_helper.dart';

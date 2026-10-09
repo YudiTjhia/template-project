@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 import 'dart:typed_data';
 
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 import 'package:http/http.dart' as http;
 import 'package:pointycastle/asn1.dart';
 import 'package:pointycastle/export.dart';

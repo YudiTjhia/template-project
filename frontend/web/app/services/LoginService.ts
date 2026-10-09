@@ -43,6 +43,12 @@ const defaultEndpoints = {
 };
 
 const sessionTokenKey = 'auth_token';
+const sessionUserKey = 'auth_user';
+
+export type CurrentSessionUser = {
+  username: string;
+  email: string;
+};
 
 /** Authentication API for the active sub-app, called through its same-origin Next.js routes. */
 export class LoginService {
@@ -91,6 +97,7 @@ export class LoginService {
       if (token) await this.logout(token);
     } finally {
       window.sessionStorage.removeItem(sessionTokenKey);
+      window.sessionStorage.removeItem(sessionUserKey);
     }
   }
 
@@ -105,7 +112,28 @@ export class LoginService {
   }
 
   clearSessionToken(): void {
-    if (typeof window !== 'undefined') window.sessionStorage.removeItem(sessionTokenKey);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem(sessionTokenKey);
+      window.sessionStorage.removeItem(sessionUserKey);
+    }
+  }
+
+  getCurrentUser(): CurrentSessionUser | null {
+    if (typeof window === 'undefined') return null;
+    const stored = window.sessionStorage.getItem(sessionUserKey);
+    if (stored) {
+      try {
+        const user = JSON.parse(stored) as Partial<CurrentSessionUser>;
+        if (user.username || user.email) {
+          return { username: user.username || user.email || 'Pengguna', email: user.email ?? '' };
+        }
+      } catch {
+        window.sessionStorage.removeItem(sessionUserKey);
+      }
+    }
+
+    const token = this.getSessionToken();
+    return token ? this.findSessionUser(this.decodeTokenPayload(token)) : null;
   }
 
   private async post<T>(endpoint: string, body: unknown, fallbackMessage: string): Promise<LoginResponse<T>> {
@@ -128,9 +156,46 @@ export class LoginService {
   private rememberSessionToken<T>(response: LoginResponse<T>): LoginResponse<T> {
     if (typeof window !== 'undefined') {
       const token = this.findToken(response.data);
-      if (token) window.sessionStorage.setItem(sessionTokenKey, token);
+      if (token) {
+        const previousToken = window.sessionStorage.getItem(sessionTokenKey);
+        if (previousToken && previousToken !== token) window.sessionStorage.removeItem(sessionUserKey);
+        window.sessionStorage.setItem(sessionTokenKey, token);
+      }
+
+      const user = this.findSessionUser(response.data) ?? this.findSessionUser(this.decodeTokenPayload(token ?? ''));
+      if (user) window.sessionStorage.setItem(sessionUserKey, JSON.stringify(user));
     }
     return response;
+  }
+
+  private findSessionUser(value: unknown): CurrentSessionUser | null {
+    if (!value || typeof value !== 'object') return null;
+    const record = value as Record<string, unknown>;
+    const readString = (...keys: string[]) => {
+      for (const key of keys) {
+        const candidate = record[key];
+        if (typeof candidate === 'string' && candidate.trim()) return candidate.trim();
+      }
+      return '';
+    };
+
+    const email = readString('email', 'user_email', 'userEmail');
+    const username = readString('username', 'user_name', 'userName', 'name', 'display_name', 'preferred_username') || email;
+    if (username || email) return { username: username || 'Pengguna', email };
+
+    return this.findSessionUser(record.data) ?? this.findSessionUser(record.user) ?? this.findSessionUser(record.profile);
+  }
+
+  private decodeTokenPayload(token: string): unknown {
+    if (typeof window === 'undefined') return null;
+    try {
+      const payload = token.split('.')[1];
+      if (!payload) return null;
+      const normalized = payload.replace(/-/g, '+').replace(/_/g, '/');
+      return JSON.parse(window.atob(normalized.padEnd(Math.ceil(normalized.length / 4) * 4, '=')));
+    } catch {
+      return null;
+    }
   }
 
   private findToken(value: unknown): string | undefined {

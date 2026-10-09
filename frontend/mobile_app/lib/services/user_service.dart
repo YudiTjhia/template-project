@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 import 'package:mobile_app/models/user_model.dart';
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 import 'package:mobile_app/shared/services/base_service.dart';
 
 class UserService extends BaseService {

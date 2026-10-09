@@ -128,34 +128,51 @@ class _CenterMenuButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
 
-    return InkWell(
-      borderRadius: BorderRadius.circular(22),
-      onTap: onTap,
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+    return SizedBox.expand(
+      child: Stack(
+        clipBehavior: Clip.none,
         children: [
-          Container(
-            width: 48,
-            height: 38,
-            decoration: BoxDecoration(
-              color: isSelected ? colorScheme.primary : const Color(0xFF101828),
-              borderRadius: BorderRadius.circular(20),
-            ),
-            child: Icon(
-              isSelected ? item.selectedIcon : item.icon,
-              color: Colors.white,
-              size: 22,
-            ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            item.label,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w800,
-              color: isSelected ? colorScheme.primary : const Color(0xFF101828),
+          Positioned(
+            top: -20,
+            left: 0,
+            right: 0,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Material(
+                  color: isSelected
+                      ? colorScheme.primary
+                      : const Color(0xFF101828),
+                  elevation: 8,
+                  shadowColor: Colors.black.withValues(alpha: 0.28),
+                  shape: const CircleBorder(),
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: onTap,
+                    child: SizedBox.square(
+                      dimension: 60,
+                      child: Icon(
+                        isSelected ? item.selectedIcon : item.icon,
+                        color: Colors.white,
+                        size: 27,
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  item.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: isSelected
+                        ? colorScheme.primary
+                        : const Color(0xFF101828),
+                  ),
+                ),
+              ],
             ),
           ),
         ],

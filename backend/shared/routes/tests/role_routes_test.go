@@ -16,6 +16,7 @@ import (
 	"backend/shared/models"
 	"backend/shared/routes"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 	"github.com/jmoiron/sqlx"
 )
 
@@ -119,7 +120,7 @@ func TestRoleRoutesRegisterAndCreate(t *testing.T) {
 
 	service := services.NewRoleService(roleRoutesDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"})
 	handler := routes.NewRoleRoutes(service)
-	mux := http.NewServeMux()
+	mux := chi.NewRouter()
 	handler.Register(mux)
 
 	req := httptest.NewRequest(http.MethodPost, "/roles", strings.NewReader(`{"role_name":"Admin","actions":["read","update"]}`))
@@ -141,7 +142,7 @@ func TestRoleRoutesActionsLookup(t *testing.T) {
 
 	service := services.NewRoleService(roleRoutesDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"})
 	handler := routes.NewRoleRoutes(service)
-	mux := http.NewServeMux()
+	mux := chi.NewRouter()
 	handler.Register(mux)
 
 	req := httptest.NewRequest(http.MethodGet, "/roles/actions?search=role", nil)
@@ -169,7 +170,7 @@ func TestRoleRoutesActionCRUD(t *testing.T) {
 
 	service := services.NewRoleService(roleRoutesDB, models.Auth{AccountID: 7, UserName: "alice", Email: "alice@example.com"})
 	handler := routes.NewRoleRoutes(service)
-	mux := http.NewServeMux()
+	mux := chi.NewRouter()
 	handler.Register(mux)
 
 	createReq := httptest.NewRequest(http.MethodPost, "/roles/actions", strings.NewReader(`{"value":"export_report","label":"Export Report","sort_order":90,"active":true}`))

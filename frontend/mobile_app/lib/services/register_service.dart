@@ -1,4 +1,4 @@
-import 'package:mobile_app/shared/config/app_config.dart';
+import 'package:mobile_app/config/app_config.dart';
 
 import '../models/register_model.dart';
 
@@ -8,9 +8,7 @@ import 'package:mobile_app/shared/services/api_helper.dart';
 class RegisterService extends BaseService {
   RegisterService({super.client});
 
-  Future<RegisterResponse> register(
-    RegisterModel customer,
-  ) async {
+  Future<RegisterResponse> register(RegisterModel customer) async {
     final uri = Uri.parse('${AppConfig.baseUrl}/api/customers/register');
 
     try {

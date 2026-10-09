@@ -30,6 +30,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import { usePathname, useRouter } from 'next/navigation';
 import { getSubAppUrl, resolveSubAppType, type SubAppType } from '@/app/helpers/subApp';
+import CurrentUser from './CurrentUser';
 
 export type NavigationMenuItem = {
   label: string;
@@ -46,6 +47,7 @@ export type NavigationMenuProps = {
   onNavigate?: (item: NavigationMenuItem) => void;
   onLogout?: () => void;
   subAppType?: SubAppType;
+  showCurrentUser?: boolean;
 };
 
 const defaultItems: NavigationMenuItem[] = [
@@ -78,6 +80,7 @@ export default function NavigationMenu({
   onNavigate,
   onLogout,
   subAppType = resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE),
+  showCurrentUser = true,
 }: NavigationMenuProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -137,6 +140,7 @@ export default function NavigationMenu({
       <Toolbar>
         <Box component="span" sx={{ fontWeight: 700, color: 'primary.main' }}>Navigation</Box>
       </Toolbar>
+      {showCurrentUser && <CurrentUser />}
       <Divider />
       <List sx={{ py: 1, flex: 1 }}>{renderItems(items)}</List>
     </Box>

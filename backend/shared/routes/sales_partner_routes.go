@@ -4,22 +4,90 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strconv"
-	"strings"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
 	"backend/shared/models"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type SalesPartnerRoutes struct{ Service *services.SalesPartnerService }
+
+var _ interfaces.ICRUDRouteOperations = (*SalesPartnerRoutes)(nil)
 
 func NewSalesPartnerRoutes(service *services.SalesPartnerService) *SalesPartnerRoutes {
 	return &SalesPartnerRoutes{Service: service}
 }
 
-func (r *SalesPartnerRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/sales-partners", r.handleListOrCreate)
-	mux.HandleFunc("/sales-partners/", r.handleByPath)
+func (r *SalesPartnerRoutes) Register(router chi.Router) {
+	_ = impl.NewMRoutes().RegisterRoutes(loggedRouteRegistrar{router}, "/sales-partners", r)
+	registerLoggedHandler(router, "/sales-partners/{id}/accounts", r.handleAccountsRoute)
+	registerLoggedHandler(router, "/sales-partners/{id}/accounts/{accountID}", r.handleAccountsRoute)
+}
+
+func (r *SalesPartnerRoutes) List(req *http.Request) (any, error) {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	items, err := service.FindList(req.URL.Query().Get("search"))
+	if err != nil {
+		return nil, err
+	}
+	return impl.RouteResponse{
+		Status: http.StatusOK,
+		Body: map[string]interface{}{
+			"data": items, "commissionPercent": models.SalesPartnerCommissionPercent(),
+		},
+	}, nil
+}
+
+func (r *SalesPartnerRoutes) Create(req *http.Request, body []byte) (any, error) {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	var payload models.SalesPartner
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return service.Create(payload)
+}
+
+func (r *SalesPartnerRoutes) FindByID(req *http.Request, id int64) (any, error) {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return service.FindByID(id)
+}
+
+func (r *SalesPartnerRoutes) Update(req *http.Request, id int64, body []byte) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	var payload models.SalesPartner
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	payload.ID = id
+	if err := service.Update(payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
+
+func (r *SalesPartnerRoutes) Delete(req *http.Request, id int64) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	if err := service.Delete(id); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
 }
 
 func (r *SalesPartnerRoutes) serviceForRequest(req *http.Request) (*services.SalesPartnerService, error) {
@@ -33,90 +101,30 @@ func (r *SalesPartnerRoutes) serviceForRequest(req *http.Request) (*services.Sal
 	return services.NewSalesPartnerServiceWithDatabases(r.Service.DB, r.Service.MasterDB, auth), nil
 }
 
-func (r *SalesPartnerRoutes) handleListOrCreate(w http.ResponseWriter, req *http.Request) {
+func (r *SalesPartnerRoutes) handleAccountsRoute(w http.ResponseWriter, req *http.Request) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
 		writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	switch req.Method {
-	case http.MethodGet:
-		items, err := service.FindList(req.URL.Query().Get("search"))
-		if err != nil {
-			writeSalesPartnerError(w, http.StatusInternalServerError, err.Error())
-			return
-		}
-		writeSalesPartnerJSON(w, http.StatusOK, map[string]interface{}{"data": items, "commissionPercent": models.SalesPartnerCommissionPercent()})
-	case http.MethodPost:
-		var payload models.SalesPartner
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			writeSalesPartnerError(w, http.StatusBadRequest, "invalid json payload")
-			return
-		}
-		id, err := service.Create(payload)
-		if err != nil {
-			writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeSalesPartnerJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
-	default:
-		writeSalesPartnerError(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
-}
-
-func (r *SalesPartnerRoutes) handleByPath(w http.ResponseWriter, req *http.Request) {
-	service, err := r.serviceForRequest(req)
+	partnerID, err := routeInt64Param(req, "id", "sales partner")
 	if err != nil {
 		writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	parts := strings.Split(strings.Trim(strings.TrimPrefix(req.URL.Path, "/sales-partners/"), "/"), "/")
-	if len(parts) == 0 || parts[0] == "" {
-		writeSalesPartnerError(w, http.StatusNotFound, "not found")
-		return
-	}
-	id, err := strconv.ParseInt(parts[0], 10, 64)
-	if err != nil {
-		writeSalesPartnerError(w, http.StatusBadRequest, "invalid sales partner id")
-		return
-	}
-	if len(parts) > 1 && parts[1] == "accounts" {
-		r.handleAccounts(w, req, service, id, parts[2:])
-		return
-	}
-	switch req.Method {
-	case http.MethodGet:
-		item, err := service.FindByID(id)
+	accountID := int64(0)
+	if routeParam(req, "accountID") != "" {
+		accountID, err = routeInt64Param(req, "accountID", "account")
 		if err != nil {
-			writeSalesPartnerError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeSalesPartnerJSON(w, http.StatusOK, map[string]interface{}{"data": item})
-	case http.MethodPut:
-		var payload models.SalesPartner
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			writeSalesPartnerError(w, http.StatusBadRequest, "invalid json payload")
-			return
-		}
-		payload.ID = id
-		if err := service.Update(payload); err != nil {
 			writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
 			return
 		}
-		writeSalesPartnerJSON(w, http.StatusOK, map[string]interface{}{"message": "updated"})
-	case http.MethodDelete:
-		if err := service.Delete(id); err != nil {
-			writeSalesPartnerError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeSalesPartnerJSON(w, http.StatusOK, map[string]interface{}{"message": "deleted"})
-	default:
-		writeSalesPartnerError(w, http.StatusMethodNotAllowed, "method not allowed")
 	}
+	r.handleAccounts(w, req, service, partnerID, accountID)
 }
 
-func (r *SalesPartnerRoutes) handleAccounts(w http.ResponseWriter, req *http.Request, service *services.SalesPartnerService, partnerID int64, rest []string) {
-	if len(rest) == 0 {
+func (r *SalesPartnerRoutes) handleAccounts(w http.ResponseWriter, req *http.Request, service *services.SalesPartnerService, partnerID, accountID int64) {
+	if accountID == 0 {
 		if req.Method != http.MethodGet {
 			writeSalesPartnerError(w, http.StatusMethodNotAllowed, "method not allowed")
 			return
@@ -129,11 +137,7 @@ func (r *SalesPartnerRoutes) handleAccounts(w http.ResponseWriter, req *http.Req
 		writeSalesPartnerJSON(w, http.StatusOK, map[string]interface{}{"data": items})
 		return
 	}
-	accountID, err := strconv.ParseInt(rest[0], 10, 64)
-	if err != nil {
-		writeSalesPartnerError(w, http.StatusBadRequest, "invalid account id")
-		return
-	}
+	var err error
 	switch req.Method {
 	case http.MethodPost:
 		err = service.LinkAccount(partnerID, accountID)

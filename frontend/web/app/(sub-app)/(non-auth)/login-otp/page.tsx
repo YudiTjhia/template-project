@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { LoginOTP } from '@/app/components/login';
 import PageContainer from '@/app/components/page/PageContainer';
 import loginService from '@/app/services/LoginService';
+import { getSubAppPaths, resolveSubAppType } from '@/app/helpers/subApp';
 
 function LoginOTPContent() {
   const router = useRouter();
@@ -33,7 +34,7 @@ function LoginOTPContent() {
     setError(undefined);
     try {
       await loginService.loginOTP(identifier, otp);
-      router.push('/');
+      router.replace(getSubAppPaths(resolveSubAppType(process.env.NEXT_PUBLIC_SUB_APP_TYPE)).home);
     } catch (caughtError) {
       setError(caughtError instanceof Error ? caughtError.message : 'Verifikasi OTP gagal.');
     } finally {

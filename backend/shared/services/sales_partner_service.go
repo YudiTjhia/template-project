@@ -1,11 +1,13 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"errors"
 	"fmt"
 	"strings"
 
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -32,7 +34,17 @@ func (s *SalesPartnerService) NewSalesPartner() models.SalesPartner {
 	return models.NewSalesPartner(s.DB, s.Auth)
 }
 
-func (s *SalesPartnerService) Migrate() { s.NewSalesPartner().Migrate() }
+func (s *SalesPartnerService) salesPartnerMModel() *mmodels.SalesPartnerMModel {
+	model := mmodels.NewSalesPartnerMModel(context.Background(), s.DB)
+	model.AccountID = s.Auth.AccountID
+	model.AuthAccountID = s.Auth.AccountID
+	model.AuthEmail = s.Auth.Email
+	return model
+}
+
+func (s *SalesPartnerService) Migrate() error {
+	return s.salesPartnerMModel().Migrate()
+}
 
 func (s *SalesPartnerService) Create(partner models.SalesPartner) (int64, error) {
 	if partner.UserID <= 0 {
@@ -48,7 +60,7 @@ func (s *SalesPartnerService) Create(partner models.SalesPartner) (int64, error)
 	if err := s.MasterDB.Get(&user, `SELECT id,account_id,user_email,mobilephone,username FROM users WHERE id=$1 AND account_id=$2 AND is_active=true`, partner.UserID, s.Auth.AccountID); err != nil {
 		return 0, fmt.Errorf("user tidak ditemukan atau tidak aktif")
 	}
-	item := s.NewSalesPartner()
+	item := s.salesPartnerMModel()
 	item.UserID = user.ID
 	item.AccountID, item.Name, item.Email, item.Phone = user.AccountID, user.Username, user.UserEmail, user.MobilePhone
 	item.ReferralCode, item.Status, item.CommissionPercent, item.CreatedBy = "", partner.Status, partner.CommissionPercent, partner.CreatedBy
@@ -82,7 +94,8 @@ func (s *SalesPartnerService) EnsureForUser(userID int64) (int64, error) {
 		return 0, err
 	}
 
-	item := s.NewSalesPartner()
+	item := s.salesPartnerMModel()
+	item.AuthAccountID = 0 // registration may ensure partners for accounts other than the current auth scope
 	item.UserID = user.ID
 	item.AccountID = user.AccountID
 	item.Name = user.Username
@@ -142,13 +155,17 @@ func (s *SalesPartnerService) LinkReferredAccount(accountID int64, referralCode 
 }
 
 func (s *SalesPartnerService) Update(partner models.SalesPartner) error {
-	item := s.NewSalesPartner()
+	item := s.salesPartnerMModel()
 	item.ID, item.AccountID, item.Name, item.Email, item.Phone = partner.ID, partner.AccountID, partner.Name, partner.Email, partner.Phone
 	item.ReferralCode, item.Status, item.CommissionPercent = partner.ReferralCode, partner.Status, partner.CommissionPercent
 	return item.Update()
 }
 
-func (s *SalesPartnerService) Delete(id int64) error { return s.NewSalesPartner().Delete(id) }
+func (s *SalesPartnerService) Delete(id int64) error {
+	item := s.salesPartnerMModel()
+	item.ID = id
+	return item.Delete()
+}
 func (s *SalesPartnerService) FindList(search string) ([]models.SalesPartner, error) {
 	return s.NewSalesPartner().FindList(search)
 }

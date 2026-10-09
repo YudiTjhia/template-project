@@ -1,6 +1,7 @@
 'use client';
 
 import { Box, Paper, Stack } from '@mui/material';
+import type { SxProps, Theme } from '@mui/material/styles';
 import EditFields, { type EditFieldMetadata, type EditFieldsValues } from './EditFields';
 
 export type EditCenterProps = {
@@ -13,6 +14,7 @@ export type EditCenterProps = {
   loading?: boolean;
   error?: string;
   maxWidth?: number | string;
+  panelSx?: SxProps<Theme>;
   actions?: React.ReactNode;
   onSubmit: (values: EditFieldsValues, recordId?: string | number) => void | Promise<void>;
   onCancel?: () => void;
@@ -28,13 +30,16 @@ export default function EditCenter({
   loading = false,
   error,
   maxWidth = 720,
+  panelSx,
   actions,
   onSubmit,
   onCancel,
 }: EditCenterProps) {
   return (
     <Box sx={{ width: '100%', display: 'flex', justifyContent: 'center' }}>
-      <Paper variant="outlined" sx={{ width: '100%', maxWidth, p: { xs: 2, sm: 3 }, borderRadius: 2 }}>
+      <Paper        
+        sx={{ width: '100%', maxWidth, p: { xs: 2, sm: 3 }, borderRadius: 2, ...panelSx }}
+      >
         <Stack spacing={2.5}>
           <EditFields
             fields={fields}

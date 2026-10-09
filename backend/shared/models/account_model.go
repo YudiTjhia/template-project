@@ -1,6 +1,7 @@
 package models
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"log"
@@ -11,12 +12,13 @@ import (
 )
 
 type BaseModel struct {
-	DB        *sqlx.DB   `json:"-" db:"-"`
-	Auth      Auth       `json:"-" db:"-"`
-	CreatedAt time.Time  `json:"-" db:"created_at"`
-	CreatedBy string     `json:"-" db:"created_by"`
-	UpdatedAt *time.Time `json:"-" db:"updated_at"`
-	UpdatedBy *string    `json:"-" db:"updated_by"`
+	Context   context.Context `json:"-" db:"-"`
+	DB        *sqlx.DB        `json:"-" db:"-"`
+	Auth      Auth            `json:"-" db:"-"`
+	CreatedAt time.Time       `json:"-" db:"created_at"`
+	CreatedBy string          `json:"-" db:"created_by"`
+	UpdatedAt *time.Time      `json:"-" db:"updated_at"`
+	UpdatedBy *string         `json:"-" db:"updated_by"`
 }
 
 func LogSQLArgs(args map[string]interface{}) {

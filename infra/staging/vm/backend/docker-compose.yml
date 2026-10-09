@@ -16,9 +16,9 @@ services:
       - "${BACKEND_PORT:-32007}:8080"
     restart: unless-stopped
     networks:
-      - template_web_staging
+      - template_project_staging
 
 networks:
-  template_web_staging:
-    name: template_web_staging
+  template_project_staging:
+    name: template_project_staging
     external: true

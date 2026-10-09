@@ -7,134 +7,93 @@ import (
 	"strconv"
 	"strings"
 
+	"backend/shared/metadata/impl"
+	"backend/shared/metadata/interfaces"
 	"backend/shared/models"
 	"backend/shared/services"
+	"github.com/go-chi/chi/v5"
 )
 
 type ApprovalRoutes struct {
 	Service *services.ApprovalService
 }
 
+var _ interfaces.ICRUDRouteOperations = (*ApprovalRoutes)(nil)
+
 func NewApprovalRoutes(service *services.ApprovalService) *ApprovalRoutes {
 	return &ApprovalRoutes{Service: service}
 }
 
-func (r *ApprovalRoutes) Register(mux *http.ServeMux) {
-	mux.HandleFunc("/approval-rules", r.handleApprovalRules)
-	mux.HandleFunc("/approval-rules/", r.handleApprovalRuleByID)
-	mux.HandleFunc("/approval-requests", r.handleApprovalRequests)
-	mux.HandleFunc("/approval-requests/", r.handleApprovalRequestByID)
+func (r *ApprovalRoutes) Register(router chi.Router) {
+	_ = impl.NewMRoutes().RegisterRoutes(loggedRouteRegistrar{router}, "/approval-rules", r)
+	registerLoggedHandler(router, "/approval-requests", r.handleApprovalRequests)
+	registerLoggedHandler(router, "/approval-requests/*", r.handleApprovalRequestByID)
 }
 
-func (r *ApprovalRoutes) handleApprovalRules(w http.ResponseWriter, req *http.Request) {
-	switch req.Method {
-	case http.MethodGet:
-		r.handleApprovalRuleList(w, req)
-	case http.MethodPost:
-		r.handleApprovalRuleCreate(w, req)
-	default:
-		writeApprovalJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
-	}
-}
-
-func (r *ApprovalRoutes) handleApprovalRuleList(w http.ResponseWriter, req *http.Request) {
+func (r *ApprovalRoutes) List(req *http.Request) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
-	search := req.URL.Query().Get("search")
-	includeAll := req.URL.Query().Get("all") == "1" || strings.EqualFold(req.URL.Query().Get("all"), "true")
-	var items []models.ApprovalRule
+	includeAll, err := queryBool(req, "all")
+	if err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
+	}
 	if includeAll {
-		items, err = service.FindAllRules()
-	} else {
-		items, err = service.FindRules(search)
+		return service.FindAllRules()
 	}
-	if err != nil {
-		writeApprovalJSONError(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-
-	writeApprovalJSON(w, http.StatusOK, map[string]interface{}{"data": items})
+	return service.FindRules(req.URL.Query().Get("search"))
 }
 
-func (r *ApprovalRoutes) handleApprovalRuleCreate(w http.ResponseWriter, req *http.Request) {
+func (r *ApprovalRoutes) Create(req *http.Request, body []byte) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
 	var payload models.ApprovalRule
-	if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, "invalid json payload")
-		return
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
 	id, err := service.SaveRule(payload)
 	if err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
-
-	writeApprovalJSON(w, http.StatusCreated, map[string]interface{}{"id": id})
+	return id, nil
 }
 
-func (r *ApprovalRoutes) handleApprovalRuleByID(w http.ResponseWriter, req *http.Request) {
+func (r *ApprovalRoutes) FindByID(req *http.Request, id int64) (any, error) {
 	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-		return
+		return nil, impl.NewRouteError(http.StatusBadRequest, err)
 	}
+	return service.FindRuleByID(id)
+}
 
-	path := strings.TrimPrefix(req.URL.Path, "/approval-rules/")
-	if path == "" {
-		writeApprovalJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-	parts := strings.Split(strings.Trim(path, "/"), "/")
-	if len(parts) == 0 || parts[0] == "" {
-		writeApprovalJSONError(w, http.StatusNotFound, "not found")
-		return
-	}
-
-	id, err := strconv.ParseInt(parts[0], 10, 64)
+func (r *ApprovalRoutes) Update(req *http.Request, id int64, body []byte) error {
+	service, err := r.serviceForRequest(req)
 	if err != nil {
-		writeApprovalJSONError(w, http.StatusBadRequest, "invalid approval rule id")
-		return
+		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
+	var payload models.ApprovalRule
+	if err := decodeJSONBytes(body, &payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	payload.ID = id
+	if _, err := service.SaveRule(payload); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
+}
 
-	switch req.Method {
-	case http.MethodGet:
-		item, err := service.FindRuleByID(id)
-		if err != nil {
-			writeApprovalJSONError(w, http.StatusNotFound, err.Error())
-			return
-		}
-		writeApprovalJSON(w, http.StatusOK, map[string]interface{}{"data": item})
-	case http.MethodPut:
-		var payload models.ApprovalRule
-		if err := json.NewDecoder(req.Body).Decode(&payload); err != nil {
-			writeApprovalJSONError(w, http.StatusBadRequest, "invalid json payload")
-			return
-		}
-		payload.ID = id
-		if _, err := service.SaveRule(payload); err != nil {
-			writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeApprovalJSON(w, http.StatusOK, map[string]interface{}{"message": "updated"})
-	case http.MethodDelete:
-		if err := service.DeleteRule(id); err != nil {
-			writeApprovalJSONError(w, http.StatusBadRequest, err.Error())
-			return
-		}
-		writeApprovalJSON(w, http.StatusOK, map[string]interface{}{"message": "deleted"})
-	default:
-		writeApprovalJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
+func (r *ApprovalRoutes) Delete(req *http.Request, id int64) error {
+	service, err := r.serviceForRequest(req)
+	if err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
 	}
+	if err := service.DeleteRule(id); err != nil {
+		return impl.NewRouteError(http.StatusBadRequest, err)
+	}
+	return nil
 }
 
 func (r *ApprovalRoutes) handleApprovalRequests(w http.ResponseWriter, req *http.Request) {
@@ -178,7 +137,7 @@ func (r *ApprovalRoutes) handleApprovalRequestByID(w http.ResponseWriter, req *h
 		return
 	}
 
-	path := strings.TrimPrefix(req.URL.Path, "/approval-requests/")
+	path := strings.TrimPrefix(req.URL.Path, "/approval-requests/*")
 	parts := strings.Split(strings.Trim(path, "/"), "/")
 	if len(parts) == 0 || parts[0] == "" {
 		writeApprovalJSONError(w, http.StatusNotFound, "not found")

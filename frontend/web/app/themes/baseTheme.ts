@@ -2,7 +2,7 @@ import type { ThemeOptions } from '@mui/material/styles';
 
 const baseTheme: ThemeOptions = {
   typography: {
-    fontFamily: 'var(--font-roboto), Arial, sans-serif',
+    fontFamily: 'Roboto, Arial, sans-serif',
   },
   palette: {
     mode: 'light',

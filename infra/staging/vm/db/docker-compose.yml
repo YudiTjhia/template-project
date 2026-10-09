@@ -3,15 +3,15 @@ name: template-project-staging-db
 services:
   db:
     image: pgvector/pgvector:pg16-bookworm
-    container_name: template_web_staging_db
+    container_name: template_project_staging_db
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-template_web_master}
-      POSTGRES_USER: ${POSTGRES_USER:-template_web}
+      POSTGRES_DB: ${POSTGRES_DB:-template_project_master}
+      POSTGRES_USER: ${POSTGRES_USER:-template_project}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in infra/staging/vm/db/.env}
     ports:
       - "127.0.0.1:${DB_PORT:-32008}:5432"
     volumes:
-      - template_web_staging_db_data:/var/lib/postgresql/data
+      - template_project_staging_db_data:/var/lib/postgresql/data
       - ./init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
@@ -19,14 +19,14 @@ services:
       timeout: 5s
       retries: 10
     networks:
-      - template_web_staging
+      - template_project_staging
     restart: unless-stopped
 
 volumes:
-  template_web_staging_db_data:
-    name: template-web-staging-db_template_web_staging_db_data
+  template_project_staging_db_data:
+    name: template-project-staging-db_template_project_staging_db_data
 
 networks:
-  template_web_staging:
-    name: template_web_staging
+  template_project_staging:
+    name: template_project_staging
     external: true

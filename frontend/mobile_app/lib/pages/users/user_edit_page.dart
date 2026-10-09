@@ -5,16 +5,24 @@ import 'package:mobile_app/services/role_service.dart';
 
 import '../../shared/widgets/edit_component.dart';
 import '../../shared/widgets/edit_fields.dart';
+import '../../navigation/app_drawer_menu.dart';
 
 import 'package:mobile_app/models/user_model.dart';
 import 'package:mobile_app/services/user_service.dart';
 
 class UserEditPage extends StatefulWidget {
-  const UserEditPage({super.key, this.userId, this.service, this.roleService});
+  const UserEditPage({
+    super.key,
+    this.userId,
+    this.service,
+    this.roleService,
+    this.enableDrawer = true,
+  });
 
   final int? userId;
   final UserService? service;
   final RoleService? roleService;
+  final bool enableDrawer;
 
   @override
   State<UserEditPage> createState() => _UserEditPageState();
@@ -258,6 +266,9 @@ class _UserEditPageState extends State<UserEditPage> {
     final title = _isCreate ? 'Tambah User' : 'Edit User';
     return Scaffold(
       appBar: AppBar(title: Text(title)),
+      drawer: widget.enableDrawer
+          ? const AppDrawerMenu(selectedRoute: '/users')
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
