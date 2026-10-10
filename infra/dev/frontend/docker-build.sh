@@ -27,10 +27,10 @@ if [[ -f "$ENV_FILE" ]]; then
 fi
 
 case "${1:-up}" in
-  up) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build ;;
+  up) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d ;;
   down) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" down ;;
-  restart) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" up -d --build --force-recreate ;;
+  build) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" build ;;
   logs) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" logs -f ;;
   ps) docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" ps ;;
-  *) echo "Usage: $(basename "$0") [up|down|restart|logs|ps]"; exit 1 ;;
+  *) echo "Usage: $(basename "$0") [down|build|up|logs|ps]"; exit 1 ;;
 esac
