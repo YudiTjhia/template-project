@@ -1,6 +1,7 @@
 package models
 
 import (
+	"backend/shared/mmodels"
 	"errors"
 	"fmt"
 	"log"
@@ -11,15 +12,8 @@ import (
 )
 
 const (
-	ApprovalEntityPurchaseRequest     = "PURCHASE_REQUEST"
-	ApprovalEntityPurchaseOrder       = "PURCHASE_ORDER"
-	ApprovalEntityRequestForQuotation = "REQUEST_FOR_QUOTATION"
-	ApprovalEntityGoodsReceive        = "GOODS_RECEIVE"
-	ApprovalEntitySupplierInvoice     = "SUPPLIER_INVOICE"
-	ApprovalEntityPayment             = "PAYMENT"
-	ApprovalEntityBudgetAdjustment    = "BUDGET_ADJUSTMENT"
-	ApprovalEntityBudgetControl       = "BUDGET_CONTROL"
-	ApprovalEntityStockAdjustment     = "STOCK_ADJUSTMENT"
+	ApprovalEntityBudgetAdjustment = "BUDGET_ADJUSTMENT"
+	ApprovalEntityBudgetControl    = "BUDGET_CONTROL"
 )
 
 const (
@@ -169,7 +163,7 @@ func NewApprovalRequestStep(db *sqlx.DB, auth Auth) ApprovalRequestStep {
 }
 
 func (m ApprovalRule) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS approval_rules (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.ApprovalRuleTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	entity_type VARCHAR(50) NOT NULL DEFAULT '',
@@ -187,43 +181,43 @@ func (m ApprovalRule) Migrate() {
 );`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rules_account_id ON approval_rules (account_id);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rules_account_id ON ` + mmodels.ApprovalRuleTable + ` (account_id);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rules_entity ON approval_rules (account_id, entity_type, active);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rules_entity ON ` + mmodels.ApprovalRuleTable + ` (account_id, entity_type, active);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS rule_name VARCHAR(255) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS rule_name VARCHAR(255) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS department_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS department_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS cost_center_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS cost_center_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS min_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS min_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS max_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS max_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS priority INT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rules ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleTable + ` ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
 func (m ApprovalRuleStep) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS approval_rule_steps (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.ApprovalRuleStepTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	approval_rule_id BIGINT NOT NULL,
@@ -242,43 +236,43 @@ func (m ApprovalRuleStep) Migrate() {
 );`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rule_steps_rule_id ON approval_rule_steps (account_id, approval_rule_id, level);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_rule_steps_rule_id ON ` + mmodels.ApprovalRuleStepTable + ` (account_id, approval_rule_id, level);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approval_rule_id BIGINT NOT NULL;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approval_rule_id BIGINT NOT NULL;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approver_type VARCHAR(50) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approver_type VARCHAR(50) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approver_user_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approver_user_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approver_name VARCHAR(255);`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approver_name VARCHAR(255);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approver_role_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approver_role_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS approver_role VARCHAR(255);`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS approver_role VARCHAR(255);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS required_action VARCHAR(20) NOT NULL DEFAULT 'ANY';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS required_action VARCHAR(20) NOT NULL DEFAULT 'ANY';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_rule_steps ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRuleStepTable + ` ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
 func (m ApprovalRequest) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS approval_requests (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.ApprovalRequestTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	entity_type VARCHAR(50) NOT NULL DEFAULT '',
@@ -300,55 +294,55 @@ func (m ApprovalRequest) Migrate() {
 );`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_requests_account_id ON approval_requests (account_id);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_requests_account_id ON ` + mmodels.ApprovalRequestTable + ` (account_id);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_requests_entity ON approval_requests (account_id, entity_type, entity_id);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_requests_entity ON ` + mmodels.ApprovalRequestTable + ` (account_id, entity_type, entity_id);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS entity_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS entity_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS entity_number VARCHAR(100) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS entity_number VARCHAR(100) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS department_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS department_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS cost_center_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS cost_center_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS amount NUMERIC(18,2) NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'Pending';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'Pending';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS current_level INT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS current_level INT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS approved_at TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS rejected_at TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_requests ADD COLUMN IF NOT EXISTS rejection_note TEXT NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestTable + ` ADD COLUMN IF NOT EXISTS rejection_note TEXT NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
 func (m ApprovalRequestStep) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS approval_request_steps (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.ApprovalRequestStepTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	approval_request_id BIGINT NOT NULL,
@@ -370,54 +364,54 @@ func (m ApprovalRequestStep) Migrate() {
 );`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `CREATE INDEX IF NOT EXISTS idx_approval_request_steps_request_id ON approval_request_steps (account_id, approval_request_id, level);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_approval_request_steps_request_id ON ` + mmodels.ApprovalRequestStepTable + ` (account_id, approval_request_id, level);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approval_request_id BIGINT NOT NULL;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approval_request_id BIGINT NOT NULL;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS level INT NOT NULL DEFAULT 1;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approver_type VARCHAR(50) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approver_type VARCHAR(50) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approver_user_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approver_user_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approver_name VARCHAR(255);`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approver_name VARCHAR(255);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approver_role_id BIGINT;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approver_role_id BIGINT;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS approver_role VARCHAR(255);`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS approver_role VARCHAR(255);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS required_action VARCHAR(20) NOT NULL DEFAULT 'ANY';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS required_action VARCHAR(20) NOT NULL DEFAULT 'ANY';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'Pending';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS status VARCHAR(50) NOT NULL DEFAULT 'Pending';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS action_by VARCHAR(255);`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS action_by VARCHAR(255);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS action_at TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS action_at TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
-	sql = `ALTER TABLE approval_request_steps ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.ApprovalRequestStepTable + ` ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
-func (m ApprovalRule) TableName() string        { return "approval_rules" }
-func (m ApprovalRuleStep) TableName() string    { return "approval_rule_steps" }
-func (m ApprovalRequest) TableName() string     { return "approval_requests" }
-func (m ApprovalRequestStep) TableName() string { return "approval_request_steps" }
+func (m ApprovalRule) TableName() string        { return mmodels.ApprovalRuleTable }
+func (m ApprovalRuleStep) TableName() string    { return mmodels.ApprovalRuleStepTable }
+func (m ApprovalRequest) TableName() string     { return mmodels.ApprovalRequestTable }
+func (m ApprovalRequestStep) TableName() string { return mmodels.ApprovalRequestStepTable }
 
 func (m ApprovalRule) ValidateCreate() error {
 	if _, err := m.resolveAccountID(); err != nil {

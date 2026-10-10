@@ -1,14 +1,17 @@
 package services
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
+	"backend/shared/mmodels"
 	"backend/shared/models"
 
 	"github.com/jmoiron/sqlx"
@@ -60,10 +63,53 @@ func (s *SubscriptionService) NewSubscriptionPayment() models.SubscriptionPaymen
 	return models.NewSubscriptionPayment(s.TransactionDB, s.Auth)
 }
 
-func (s *SubscriptionService) Migrate() {
-	s.NewSubscription().Migrate()
+func (s *SubscriptionService) Migrate() error {
+	if s == nil || s.DB == nil {
+		return errors.New("subscription service database is nil")
+	}
+	planModel := mmodels.NewSubscriptionPlanMModel(context.Background(), s.DB)
+	if err := planModel.Migrate(); err != nil {
+		return err
+	}
+	if err := s.seedDefaultPlans(); err != nil {
+		return err
+	}
+	if err := s.NewSubscription().Migrate(); err != nil {
+		return err
+	}
 	s.NewSubscriptionHistory().Migrate()
 	s.NewSubscriptionPayment().Migrate()
+	return nil
+}
+
+func (s *SubscriptionService) seedDefaultPlans() error {
+	for _, plan := range models.SubscriptionPlansFromEnv() {
+		lookup := mmodels.NewSubscriptionPlanMModel(context.Background(), s.DB)
+		if _, err := lookup.FindByCode(plan.Code); err == nil {
+			continue
+		} else if !errors.Is(err, sql.ErrNoRows) {
+			return err
+		}
+
+		item := mmodels.NewSubscriptionPlanMModel(context.Background(), s.DB)
+		item.Code = plan.Code
+		item.Name = plan.Name
+		item.Price = plan.Price
+		item.Currency = plan.Currency
+		item.Description = plan.Description
+		item.Limits = mmodels.SubscriptionPlanLimits(plan.Limits)
+		item.Active = plan.Active
+		item.SortOrder = plan.SortOrder
+		item.CreatedBy = "system"
+		if _, err := item.Create(); err != nil {
+			return fmt.Errorf("seed subscription plan %s: %w", plan.Code, err)
+		}
+	}
+	return nil
+}
+
+func (s *SubscriptionService) findPlanByCode(code string) (models.SubscriptionPlan, error) {
+	return models.SubscriptionPlanByCodeFromDB(s.DB, code)
 }
 
 func (s *SubscriptionService) serviceForAccount(accountID int64) *SubscriptionService {
@@ -88,7 +134,10 @@ func (s *SubscriptionService) Create(subscription models.Subscription) (int64, e
 	model.AppType = models.NormalizeSubscriptionAppType(subscription.AppType)
 	model.PlanCode = subscription.PlanCode
 	model.NumberOfUsers = subscription.NumberOfUsers
-	plan := models.SubscriptionPlanByCode(model.PlanCode)
+	plan, err := s.findPlanByCode(model.PlanCode)
+	if err != nil {
+		return 0, err
+	}
 	model.PlanCode = plan.Code
 	model.NumberOfUsers = plan.Limits.Users
 	model.PricePerUser = plan.Price
@@ -154,7 +203,10 @@ func (s *SubscriptionService) Update(subscription models.Subscription) error {
 	if strings.TrimSpace(model.PlanCode) == "" {
 		model.PlanCode = current.PlanCode
 	}
-	plan := models.SubscriptionPlanByCode(model.PlanCode)
+	plan, err := s.findPlanByCode(model.PlanCode)
+	if err != nil {
+		return err
+	}
 	model.NumberOfUsers = plan.Limits.Users
 	if model.NumberOfUsers <= 0 {
 		model.NumberOfUsers = current.NumberOfUsers
@@ -217,7 +269,10 @@ func (s *SubscriptionService) EnsureDefaultSubscriptionForAccount(accountID int6
 	start, end := models.DefaultSubscriptionWindow()
 	model := target.NewSubscription()
 	model.AccountID = accountID
-	plan := models.SubscriptionPlanByCode("")
+	plan, err := target.findPlanByCode("")
+	if err != nil {
+		return nil, err
+	}
 	model.PlanCode = plan.Code
 	model.NumberOfUsers = plan.Limits.Users
 	model.PricePerUser = plan.Price
@@ -281,7 +336,7 @@ func (s *SubscriptionService) PaymentInfo() (*SubscriptionPaymentInfo, error) {
 
 	var users []SubscriptionPaymentUserOption
 	query := `SELECT id, username, user_email, is_active
-	FROM users
+	FROM ` + mmodels.UserTable + `
 	WHERE account_id = $1
 	ORDER BY is_active DESC, username ASC, id ASC`
 	if err := s.DB.Select(&users, query, s.Auth.AccountID); err != nil {
@@ -296,12 +351,16 @@ func (s *SubscriptionService) PaymentInfo() (*SubscriptionPaymentInfo, error) {
 		current = nil
 	}
 
+	plans, err := models.SubscriptionPlansFromDB(s.DB, true)
+	if err != nil {
+		return nil, err
+	}
 	bank := models.SubscriptionPaymentBankInfo()
 	return &SubscriptionPaymentInfo{
 		Bank:         bank,
 		PricePerUser: configuredSubscriptionPricePerUser(),
 		Currency:     bank.Currency,
-		Plans:        models.SubscriptionPlansFromEnv(),
+		Plans:        plans,
 		Users:        users,
 		Current:      current,
 	}, nil
@@ -345,7 +404,10 @@ func (s *SubscriptionService) GeneratePaymentToken(request models.SubscriptionPa
 	}
 
 	bank := models.SubscriptionPaymentBankInfo()
-	plan := models.SubscriptionPlanByCode(request.PlanCode)
+	plan, err := s.findPlanByCode(request.PlanCode)
+	if err != nil {
+		return nil, err
+	}
 	pricePerUser := plan.Price
 	payload := models.SubscriptionPaymentTokenPayload{
 		Version:       1,
@@ -453,11 +515,14 @@ func (s *SubscriptionService) ApplyPaymentToken(token string) (*models.Subscript
 		updatedBy = "system"
 	}
 
-	plan := models.SubscriptionPlanByCode(payload.PlanCode)
+	plan, err := s.findPlanByCode(payload.PlanCode)
 	if payload.PlanCode == "" {
-		plan = models.SubscriptionPlanByCode(current.PlanCode)
+		plan, err = s.findPlanByCode(current.PlanCode)
 	}
-	updateSQL := `UPDATE subscriptions
+	if err != nil {
+		return nil, err
+	}
+	updateSQL := `UPDATE ` + mmodels.SubscriptionTable + `
 	SET app_type = $1,
 		plan_code = $2,
 		plan_name = $3,
@@ -501,20 +566,19 @@ func (s *SubscriptionService) ApplyPaymentToken(token string) (*models.Subscript
 		return nil, err
 	}
 
-	insertPaymentSQL := `INSERT INTO subscription_payments
+	insertPaymentSQL := `INSERT INTO ` + mmodels.SubscriptionPaymentTable + `
 	(account_id, subscription_id, app_type, user_ids, number_of_users, months, price_per_user, total_amount, currency,
 		payment_token, proof_file_name, proof_file_size, proof_content_type, current_start_date, current_end_date, paid_at, created_by)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,NOW(),$16)`
 	paymentArgs := []interface{}{current.AccountID, current.ID, appType, pq.Int64Array(payload.UserIDs), payload.NumberOfUsers, payload.Months, pricePerUser, amount, payload.Currency, strings.TrimSpace(token), strings.TrimSpace(payload.Proof.FileName), payload.Proof.FileSize, strings.TrimSpace(payload.Proof.ContentType), startDate, endDate, updatedBy}
-	var paymentID int64
 	if s.TransactionDB != s.DB {
 		if err = tx.Commit(); err != nil {
 			return nil, err
 		}
 		tx = nil
-		err = s.TransactionDB.QueryRow(insertPaymentSQL+` RETURNING id`, paymentArgs...).Scan(&paymentID)
+		_, err = s.TransactionDB.Exec(insertPaymentSQL, paymentArgs...)
 	} else {
-		err = tx.QueryRow(insertPaymentSQL+` RETURNING id`, paymentArgs...).Scan(&paymentID)
+		_, err = tx.Exec(insertPaymentSQL, paymentArgs...)
 		if err == nil {
 			err = tx.Commit()
 			tx = nil
@@ -523,10 +587,6 @@ func (s *SubscriptionService) ApplyPaymentToken(token string) (*models.Subscript
 	if err != nil {
 		return nil, err
 	}
-	if err = NewSalesPartnerServiceWithDatabases(s.TransactionDB, s.DB, s.Auth).ApplySubscriptionCommission(current.AccountID, paymentID, amount, strings.TrimSpace(token), "subscription"); err != nil {
-		return nil, err
-	}
-
 	return s.FindByID(current.ID)
 }
 
@@ -562,7 +622,7 @@ func (s *SubscriptionService) SyncLifecycleForAccount(accountID int64) error {
 	}
 
 	_, err := s.DB.Exec(
-		`UPDATE subscriptions
+		`UPDATE `+mmodels.SubscriptionTable+`
 		SET status = $1, updated_at = NOW(), updated_by = COALESCE(NULLIF(updated_by, ''), 'system')
 		WHERE account_id = $2 AND status = $3 AND current_end_date < CURRENT_DATE`,
 		models.SubscriptionStatusExpired,
@@ -693,7 +753,7 @@ func (s *SubscriptionService) increaseUsers(current *models.Subscription, newNum
 		updatedBy = "system"
 	}
 
-	sql := `UPDATE subscriptions
+	sql := `UPDATE ` + mmodels.SubscriptionTable + `
 	SET number_of_users = $1,
 		amount = $2,
 		pending_number_of_users = NULL,
@@ -753,7 +813,7 @@ func (s *SubscriptionService) scheduleReduction(current *models.Subscription, ne
 		updatedBy = "system"
 	}
 
-	sql := `UPDATE subscriptions
+	sql := `UPDATE ` + mmodels.SubscriptionTable + `
 	SET pending_number_of_users = $1,
 		pending_effective_date = $2,
 		updated_at = NOW(),
@@ -801,7 +861,7 @@ func (s *SubscriptionService) CountActiveUsers(accountID int64) (int, error) {
 	}
 
 	var count int
-	if err := s.DB.Get(&count, `SELECT COUNT(*) FROM users WHERE account_id = $1 AND is_active = true`, accountID); err != nil {
+	if err := s.DB.Get(&count, `SELECT COUNT(*) FROM `+mmodels.UserTable+` WHERE account_id = $1 AND is_active = true`, accountID); err != nil {
 		return 0, err
 	}
 	return count, nil
@@ -816,7 +876,7 @@ func (s *SubscriptionService) ensurePaymentUsersBelongToAccount(userIDs []int64)
 	var count int
 	query, args, err := sqlx.In(
 		`SELECT COUNT(*)
-		FROM users
+		FROM `+mmodels.UserTable+`
 		WHERE account_id = ? AND is_active = true AND id IN (?)`,
 		s.Auth.AccountID,
 		userIDs,
@@ -887,7 +947,7 @@ func (s *SubscriptionService) createHistoryTx(tx *sqlx.Tx, history models.Subscr
 	if accountID <= 0 {
 		accountID = s.Auth.AccountID
 	}
-	sql := `INSERT INTO subscription_histories
+	sql := `INSERT INTO ` + mmodels.SubscriptionHistoryTable + `
 		(account_id, subscription_id, app_type, history_type, previous_number_of_users, new_number_of_users, delta_users, price_per_user,
 		amount_before, amount_change, amount_after, current_start_date, current_end_date, effective_date, notes, created_by)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)

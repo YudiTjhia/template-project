@@ -1,6 +1,7 @@
 package models
 
 import (
+	"backend/shared/mmodels"
 	"errors"
 	"log"
 	"strings"
@@ -54,7 +55,7 @@ func NewSubscriptionHistory(db *sqlx.DB, auth Auth) SubscriptionHistory {
 
 func (m SubscriptionHistory) Migrate() {
 	statements := []string{
-		`CREATE TABLE IF NOT EXISTS subscription_histories (
+		`CREATE TABLE IF NOT EXISTS ` + mmodels.SubscriptionHistoryTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	subscription_id BIGINT NOT NULL DEFAULT 0,
@@ -76,23 +77,23 @@ func (m SubscriptionHistory) Migrate() {
 	updated_at TIMESTAMPTZ,
 	updated_by VARCHAR(255)
 );`,
-		`CREATE INDEX IF NOT EXISTS idx_subscription_histories_account_id ON subscription_histories (account_id, created_at DESC, id DESC);`,
-		`CREATE INDEX IF NOT EXISTS idx_subscription_histories_subscription_id ON subscription_histories (subscription_id, created_at DESC, id DESC);`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS subscription_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS app_type VARCHAR(100) NOT NULL DEFAULT 'POS Kasir';`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS history_type VARCHAR(50) NOT NULL DEFAULT '';`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS previous_number_of_users INTEGER NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS new_number_of_users INTEGER NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS delta_users INTEGER NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS price_per_user NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS amount_before NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS amount_change NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS amount_after NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS current_start_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS current_end_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS effective_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
-		`ALTER TABLE subscription_histories ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';`,
+		`CREATE INDEX IF NOT EXISTS idx_subscription_histories_account_id ON ` + mmodels.SubscriptionHistoryTable + ` (account_id, created_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_subscription_histories_subscription_id ON ` + mmodels.SubscriptionHistoryTable + ` (subscription_id, created_at DESC, id DESC);`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS subscription_id BIGINT NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS app_type VARCHAR(100) NOT NULL DEFAULT 'POS Kasir';`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS history_type VARCHAR(50) NOT NULL DEFAULT '';`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS previous_number_of_users INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS new_number_of_users INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS delta_users INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS price_per_user NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS amount_before NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS amount_change NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS amount_after NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS current_start_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS current_end_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS effective_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
+		`ALTER TABLE ` + mmodels.SubscriptionHistoryTable + ` ADD COLUMN IF NOT EXISTS notes TEXT NOT NULL DEFAULT '';`,
 	}
 
 	for _, statement := range statements {
@@ -102,7 +103,7 @@ func (m SubscriptionHistory) Migrate() {
 }
 
 func (m SubscriptionHistory) TableName() string {
-	return "subscription_histories"
+	return mmodels.SubscriptionHistoryTable
 }
 
 func (m SubscriptionHistory) ValidateCreate() error {
@@ -142,7 +143,7 @@ func (m SubscriptionHistory) Create() (int64, error) {
 		return 0, err
 	}
 
-	sql := `INSERT INTO subscription_histories
+	sql := `INSERT INTO ` + mmodels.SubscriptionHistoryTable + `
 	(account_id, subscription_id, app_type, history_type, previous_number_of_users, new_number_of_users, delta_users, price_per_user,
 	amount_before, amount_change, amount_after, current_start_date, current_end_date, effective_date, notes, created_by)
 	VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
@@ -199,7 +200,7 @@ func (m SubscriptionHistory) FindList(subscriptionID int64) ([]SubscriptionHisto
 	}
 
 	sql := `SELECT ` + subscriptionHistorySelectColumns + `
-	FROM subscription_histories h
+	FROM ` + mmodels.SubscriptionHistoryTable + ` h
 	WHERE h.account_id = $1 AND h.subscription_id = $2
 	ORDER BY h.created_at DESC, h.id DESC`
 	log.Println("[SQL]=", sql)

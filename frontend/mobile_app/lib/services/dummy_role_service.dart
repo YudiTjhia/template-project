@@ -12,10 +12,6 @@ class DummyRoleService extends RoleService {
       name: 'SUPER_ADMIN',
       actions: [
         'view_pos_dashboard',
-        'view_sales_order',
-        'create_sales_order',
-        'update_sales_order',
-        'delete_sales_order',
         'view_item',
         'create_item',
         'update_item',
@@ -27,9 +23,6 @@ class DummyRoleService extends RoleService {
       name: 'MANAGER',
       actions: [
         'view_pos_dashboard',
-        'view_sales_order',
-        'create_sales_order',
-        'update_sales_order',
         'view_item',
         'select_location',
       ],
@@ -39,10 +32,6 @@ class DummyRoleService extends RoleService {
       name: 'CASHIER',
       actions: [
         'view_pos_dashboard',
-        'view_sales_order',
-        'create_sales_order',
-        'checkout_sales_order',
-        'cancel_sales_order',
       ],
     ),
   ];
@@ -54,42 +43,11 @@ class DummyRoleService extends RoleService {
       sortOrder: 10,
       active: true,
     ),
-    RoleActionModel(
-      value: 'view_sales_order',
-      label: 'View Sales Order',
-      sortOrder: 100,
-      active: true,
-    ),
-    RoleActionModel(
-      value: 'create_sales_order',
-      label: 'Create Sales Order',
-      sortOrder: 110,
-      active: true,
-    ),
-    RoleActionModel(
-      value: 'update_sales_order',
-      label: 'Update Sales Order',
-      sortOrder: 120,
-      active: true,
-    ),
-    RoleActionModel(
-      value: 'delete_sales_order',
-      label: 'Delete Sales Order',
-      sortOrder: 130,
-      active: true,
-    ),
-    RoleActionModel(
-      value: 'checkout_sales_order',
-      label: 'Checkout Sales Order',
-      sortOrder: 140,
-      active: true,
-    ),
-    RoleActionModel(
-      value: 'cancel_sales_order',
-      label: 'Cancel Sales Order',
-      sortOrder: 150,
-      active: true,
-    ),
+
+
+
+
+
     RoleActionModel(
       value: 'view_item',
       label: 'View Item',

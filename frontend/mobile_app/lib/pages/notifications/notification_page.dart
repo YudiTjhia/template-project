@@ -3,6 +3,7 @@ import 'package:mobile_app/models/notification_model.dart';
 import 'package:mobile_app/services/notification_api_service.dart';
 
 import '../../navigation/app_drawer_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key, this.service, this.enableDrawer = true});
@@ -123,7 +124,13 @@ class _NotificationPageState extends State<NotificationPage> {
       drawer: widget.enableDrawer
           ? const AppDrawerMenu(selectedRoute: '/notifications')
           : null,
-      body: _buildBody(),
+      body: ResponsivePageLayout(
+        maxWidth: 960,
+        compactPadding: 0,
+        mediumPadding: 0,
+        expandedPadding: 0,
+        child: _buildBody(),
+      ),
     );
   }
 

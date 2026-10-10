@@ -94,7 +94,6 @@ func main() {
 	userService := services.NewUserService(db, models.Auth{})
 	authService := services.NewAuthService(db)
 	notificationService := services.NewNotificationService(db, models.Auth{})
-	salesPartnerService := services.NewSalesPartnerService(db, models.Auth{})
 	subscriptionService := services.NewSubscriptionService(db, models.Auth{})
 	roleService := services.NewRoleService(db, models.Auth{})
 
@@ -104,10 +103,9 @@ func main() {
 	userService.Migrate()
 	authService.Migrate()
 	notificationService.Migrate()
-	if err := salesPartnerService.Migrate(); err != nil {
-		log.Fatalf("migrate sales partners: %v", err)
+	if err := subscriptionService.Migrate(); err != nil {
+		log.Fatalf("migrate subscriptions: %v", err)
 	}
-	subscriptionService.Migrate()
 	if err := roleService.Migrate(); err != nil {
 		log.Fatalf("migrate roles and role actions: %v", err)
 	}

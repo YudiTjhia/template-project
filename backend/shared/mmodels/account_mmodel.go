@@ -24,7 +24,6 @@ type AccountMModel struct {
 	CompanyLogoURL  string         `json:"company_logo_url" db:"company_logo_url"`
 	IsActive        bool           `json:"is_active" db:"is_active"`
 	AccountEmail    string         `json:"account_email" db:"account_email"`
-	ReferralCode    string         `json:"referral_code" db:"referral_code"`
 	Address         string         `json:"address" db:"address"`
 	Latitude        float64        `json:"latitude" db:"latitude"`
 	Longitude       float64        `json:"longitude" db:"longitude"`
@@ -50,7 +49,7 @@ func NewAccountMModel(ctx context.Context, db *sqlx.DB) *AccountMModel {
 	return &AccountMModel{
 		IsActive: true,
 		MModel: impl.MModel{
-			Context: ctx, Name: "Account", TableName: "accounts", DB: db,
+			Context: ctx, Name: "Account", TableName: AccountTable, DB: db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
 				impl.MField{Type: "string", DbType: "VARCHAR", JsonTag: "account_name", DbTag: "account_name", MaxLength: 255, Required: true},
@@ -58,7 +57,6 @@ func NewAccountMModel(ctx context.Context, db *sqlx.DB) *AccountMModel {
 				impl.MField{Type: "string", DbType: "TEXT", JsonTag: "company_logo_url", DbTag: "company_logo_url", Default: "''", Required: true},
 				impl.MField{Type: "bool", DbType: "BOOLEAN", JsonTag: "is_active", DbTag: "is_active", Default: "true", Required: true},
 				impl.MField{Type: "string", DbType: "VARCHAR", JsonTag: "account_email", DbTag: "account_email", MaxLength: 255, MinLength: 3, Pattern: `^[^@\s]+@[^@\s]+\.[^@\s]+$`, Required: true, IsEmail: true},
-				impl.MField{Type: "string", DbType: "VARCHAR", JsonTag: "referral_code", DbTag: "referral_code", MaxLength: 100, Default: "''", Required: true},
 				impl.MField{Type: "string", DbType: "TEXT", JsonTag: "address", DbTag: "address", Default: "''", Required: true},
 				impl.MField{Type: "float64", DbType: "NUMERIC(12,8)", JsonTag: "latitude", DbTag: "latitude", Default: "0", Required: true},
 				impl.MField{Type: "float64", DbType: "NUMERIC(12,8)", JsonTag: "longitude", DbTag: "longitude", Default: "0", Required: true},
@@ -98,32 +96,31 @@ func (m *AccountMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_name VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_logo_url TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_email VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS referral_code VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS latitude NUMERIC(12,8) NOT NULL DEFAULT 0`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS longitude NUMERIC(12,8) NOT NULL DEFAULT 0`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_version VARCHAR(50) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
-		`ALTER TABLE accounts ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
-		`CREATE INDEX IF NOT EXISTS idx_accounts_name ON accounts (LOWER(account_name))`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS account_name VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS company_logo_url TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS account_email VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS latitude NUMERIC(12,8) NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS longitude NUMERIC(12,8) NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS phone VARCHAR(100) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS terms_version VARCHAR(50) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountTable + ` ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
+		`CREATE INDEX IF NOT EXISTS idx_accounts_name ON ` + AccountTable + ` (LOWER(account_name))`,
 		`DROP INDEX IF EXISTS idx_accounts_account_email`,
 		`DROP INDEX IF EXISTS idx_accounts_account_mobilephone`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts (LOWER(account_email))`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_mobilephone ON accounts (LOWER(mobilephone)) WHERE mobilephone <> ''`,
-		`CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts (is_active)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON ` + AccountTable + ` (LOWER(account_email))`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_mobilephone ON ` + AccountTable + ` (LOWER(mobilephone)) WHERE mobilephone <> ''`,
+		`CREATE INDEX IF NOT EXISTS idx_accounts_active ON ` + AccountTable + ` (is_active)`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(m.ContextOrBackground(), statement); err != nil {
@@ -293,7 +290,6 @@ func (m *AccountMModel) normalize() {
 	m.CompanyName = strings.TrimSpace(m.CompanyName)
 	m.CompanyLogoURL = strings.TrimSpace(m.CompanyLogoURL)
 	m.AccountEmail = strings.ToLower(strings.TrimSpace(m.AccountEmail))
-	m.ReferralCode = strings.ToUpper(strings.TrimSpace(m.ReferralCode))
 	m.Address = strings.TrimSpace(m.Address)
 	m.MobilePhone = strings.TrimSpace(m.MobilePhone)
 	m.Phone = strings.TrimSpace(m.Phone)

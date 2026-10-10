@@ -1,6 +1,7 @@
 package models
 
 import (
+	"backend/shared/mmodels"
 	"errors"
 	"log"
 	"strings"
@@ -50,7 +51,7 @@ func NewSubscriptionPayment(db *sqlx.DB, auth Auth) SubscriptionPayment {
 
 func (m SubscriptionPayment) Migrate() {
 	statements := []string{
-		`CREATE TABLE IF NOT EXISTS subscription_payments (
+		`CREATE TABLE IF NOT EXISTS ` + mmodels.SubscriptionPaymentTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	subscription_id BIGINT NOT NULL DEFAULT 0,
@@ -73,24 +74,24 @@ func (m SubscriptionPayment) Migrate() {
 	updated_at TIMESTAMPTZ,
 	updated_by VARCHAR(255)
 );`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS subscription_id BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS app_type VARCHAR(100) NOT NULL DEFAULT 'POS Kasir';`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS user_ids BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[];`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS number_of_users INTEGER NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS months INTEGER NOT NULL DEFAULT 1;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS price_per_user NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS total_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'IDR';`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS payment_token TEXT NOT NULL DEFAULT '';`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proof_file_name VARCHAR(255) NOT NULL DEFAULT '';`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proof_file_size BIGINT NOT NULL DEFAULT 0;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS proof_content_type VARCHAR(255) NOT NULL DEFAULT '';`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS current_start_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS current_end_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
-		`ALTER TABLE subscription_payments ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
-		`CREATE INDEX IF NOT EXISTS idx_subscription_payments_account_paid_at ON subscription_payments (account_id, paid_at DESC, id DESC);`,
-		`CREATE INDEX IF NOT EXISTS idx_subscription_payments_subscription ON subscription_payments (account_id, subscription_id);`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS subscription_id BIGINT NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS app_type VARCHAR(100) NOT NULL DEFAULT 'POS Kasir';`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS user_ids BIGINT[] NOT NULL DEFAULT '{}'::BIGINT[];`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS number_of_users INTEGER NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS months INTEGER NOT NULL DEFAULT 1;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS price_per_user NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS total_amount NUMERIC(18,2) NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS currency VARCHAR(10) NOT NULL DEFAULT 'IDR';`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS payment_token TEXT NOT NULL DEFAULT '';`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS proof_file_name VARCHAR(255) NOT NULL DEFAULT '';`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS proof_file_size BIGINT NOT NULL DEFAULT 0;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS proof_content_type VARCHAR(255) NOT NULL DEFAULT '';`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS current_start_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS current_end_date DATE NOT NULL DEFAULT CURRENT_DATE;`,
+		`ALTER TABLE ` + mmodels.SubscriptionPaymentTable + ` ADD COLUMN IF NOT EXISTS paid_at TIMESTAMPTZ NOT NULL DEFAULT NOW();`,
+		`CREATE INDEX IF NOT EXISTS idx_subscription_payments_account_paid_at ON ` + mmodels.SubscriptionPaymentTable + ` (account_id, paid_at DESC, id DESC);`,
+		`CREATE INDEX IF NOT EXISTS idx_subscription_payments_subscription ON ` + mmodels.SubscriptionPaymentTable + ` (account_id, subscription_id);`,
 	}
 
 	for _, statement := range statements {
@@ -126,7 +127,7 @@ func (m SubscriptionPayment) FindList(search string) ([]SubscriptionPayment, err
 
 	query := strings.ToLower(strings.TrimSpace(search))
 	sql := `SELECT ` + subscriptionPaymentSelectColumns + `
-	FROM subscription_payments p
+	FROM ` + mmodels.SubscriptionPaymentTable + ` p
 	WHERE p.account_id = $1`
 	args := []interface{}{accountID}
 	if query != "" {

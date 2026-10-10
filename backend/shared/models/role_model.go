@@ -1,6 +1,7 @@
 package models
 
 import (
+	"backend/shared/mmodels"
 	"database/sql/driver"
 	"errors"
 	"fmt"
@@ -43,7 +44,7 @@ func NewRole(db *sqlx.DB, auth Auth) Role {
 }
 
 func (m Role) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS roles (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.RoleTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_id BIGINT NOT NULL DEFAULT 0,
 	role_name VARCHAR(255) NOT NULL,
@@ -56,29 +57,29 @@ func (m Role) Migrate() {
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_account_name ON roles (account_id, LOWER(role_name));`
+	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_account_name ON ` + mmodels.RoleTable + ` (account_id, LOWER(role_name));`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE INDEX IF NOT EXISTS idx_roles_account_id ON roles (account_id);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_roles_account_id ON ` + mmodels.RoleTable + ` (account_id);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE roles ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.RoleTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE roles ADD COLUMN IF NOT EXISTS role_name VARCHAR(255) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.RoleTable + ` ADD COLUMN IF NOT EXISTS role_name VARCHAR(255) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE roles ADD COLUMN IF NOT EXISTS actions TEXT[] NOT NULL DEFAULT '{}'::TEXT[];`
+	sql = `ALTER TABLE ` + mmodels.RoleTable + ` ADD COLUMN IF NOT EXISTS actions TEXT[] NOT NULL DEFAULT '{}'::TEXT[];`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
 func (m Role) TableName() string {
-	return "roles"
+	return mmodels.RoleTable
 }
 
 func (m Role) ValidateCreate() error {
@@ -121,7 +122,7 @@ func (m Role) Create() (int64, error) {
 		return 0, errors.New("created_by wajib diisi")
 	}
 
-	sql := `INSERT INTO roles
+	sql := `INSERT INTO ` + mmodels.RoleTable + `
 	(account_id, role_name, actions, created_by)
 	VALUES ($1, $2, $3, $4)
 	RETURNING id`
@@ -162,7 +163,7 @@ func (m Role) Update() error {
 		}
 	}
 
-	sql := `UPDATE roles
+	sql := `UPDATE ` + mmodels.RoleTable + `
 	SET role_name = $1,
 		actions = $2,
 		updated_at = NOW(),
@@ -191,7 +192,7 @@ func (m Role) Delete() error {
 		return err
 	}
 
-	sql := `DELETE FROM roles WHERE id = $1 AND account_id = $2`
+	sql := `DELETE FROM ` + mmodels.RoleTable + ` WHERE id = $1 AND account_id = $2`
 	log.Println("[SQL]=", sql)
 	LogSQLArgs(map[string]interface{}{"id": m.ID, "account_id": accountID})
 
@@ -313,7 +314,7 @@ func (m Role) FindRecentList(limit int, search string) ([]Role, error) {
 
 func roleSelectQuery(where string) string {
 	return `SELECT ` + roleSelectColumns + `
-	FROM roles r
+	FROM ` + mmodels.RoleTable + ` r
 	WHERE ` + where
 }
 

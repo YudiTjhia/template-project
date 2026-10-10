@@ -59,19 +59,8 @@ func TestMain(m *testing.M) {
 			account_id BIGINT NOT NULL,
 			code VARCHAR(100) NOT NULL,
 			name VARCHAR(255) NOT NULL
-		);
-		CREATE TABLE IF NOT EXISTS cash_drawer_sessions (
-			id BIGSERIAL PRIMARY KEY,
-			account_id BIGINT NOT NULL,
-			location_id BIGINT NOT NULL,
-			cashier_id BIGINT NOT NULL,
-			cashier_name VARCHAR(255) NOT NULL DEFAULT '',
-			session_no VARCHAR(100) NOT NULL DEFAULT '',
-			device_id VARCHAR(255) NOT NULL DEFAULT '',
-			status VARCHAR(30) NOT NULL DEFAULT 'OPEN',
-			opened_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 		)`); err != nil {
-		fmt.Fprintln(os.Stderr, "create auth service cash drawer test schema:", err)
+		fmt.Fprintln(os.Stderr, "create auth service location test schema:", err)
 		_ = db.Close()
 		os.Exit(1)
 	}
@@ -79,8 +68,6 @@ func TestMain(m *testing.M) {
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE auths RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE account_devices RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE locations RESTART IDENTITY CASCADE`)
-	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_movements RESTART IDENTITY CASCADE`)
-	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_sessions RESTART IDENTITY CASCADE`)
 
 	code := m.Run()
 
@@ -137,15 +124,11 @@ func newRealAuthService(t *testing.T) (*services.AuthService, func()) {
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE auths RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE account_devices RESTART IDENTITY CASCADE`)
 	_, _ = authServiceDB.Exec(`TRUNCATE TABLE locations RESTART IDENTITY CASCADE`)
-	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_movements RESTART IDENTITY CASCADE`)
-	_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_sessions RESTART IDENTITY CASCADE`)
 
 	cleanup := func() {
 		_, _ = authServiceDB.Exec(`TRUNCATE TABLE users RESTART IDENTITY CASCADE`)
 		_, _ = authServiceDB.Exec(`TRUNCATE TABLE auths RESTART IDENTITY CASCADE`)
 		_, _ = authServiceDB.Exec(`TRUNCATE TABLE locations RESTART IDENTITY CASCADE`)
-		_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_movements RESTART IDENTITY CASCADE`)
-		_, _ = authServiceDB.Exec(`TRUNCATE TABLE cash_drawer_sessions RESTART IDENTITY CASCADE`)
 	}
 
 	return service, cleanup
@@ -458,60 +441,6 @@ func TestAuthServiceLoginWithAccountIDAndPIN(t *testing.T) {
 
 	if _, err := service.LoginWithPIN("77", "000000", 0, ""); err == nil || err.Error() != "account id atau pin tidak valid" {
 		t.Fatalf("expected invalid account id pin error, got %v", err)
-	}
-}
-
-func TestAuthServiceLoginBlocksDifferentUserWhenOpenCashDrawerSessionExistsAtLocation(t *testing.T) {
-	service, cleanup := newRealAuthService(t)
-	defer cleanup()
-
-	cashier := models.NewUser(authServiceDB, models.Auth{AccountID: 7, UserName: "cashier-a"})
-	cashier.UserEmail = "cashier-a@example.com"
-	cashier.MobilePhone = "081200000001"
-	cashier.UserPassword = "secret-a"
-	cashier.PIN = "111111"
-	cashier.IsActive = true
-	cashier.Username = "Cashier A"
-	if _, err := cashier.Create(); err != nil {
-		t.Fatalf("expected no error creating cashier, got %v", err)
-	}
-
-	other := models.NewUser(authServiceDB, models.Auth{AccountID: 7, UserName: "cashier-b"})
-	other.UserEmail = "cashier-b@example.com"
-	other.MobilePhone = "081200000002"
-	other.UserPassword = "secret-b"
-	other.PIN = "222222"
-	other.IsActive = true
-	other.Username = "Cashier B"
-	if _, err := other.Create(); err != nil {
-		t.Fatalf("expected no error creating second cashier, got %v", err)
-	}
-
-	var locationID int64
-	if err := authServiceDB.QueryRow(`INSERT INTO locations (account_id, code, name) VALUES ($1, $2, $3) RETURNING id`, 7, "GNS", "Gunung Sindur").Scan(&locationID); err != nil {
-		t.Fatalf("expected no error creating location, got %v", err)
-	}
-	var openSessionID int64
-	if err := authServiceDB.QueryRow(`
-		INSERT INTO cash_drawer_sessions (account_id, location_id, cashier_id, cashier_name, session_no, device_id, status)
-		VALUES ($1, $2, $3, $4, $5, $6, 'OPEN') RETURNING id`,
-		7, locationID, cashier.ID, cashier.Username, "CD-TEST-001", "device-abc").Scan(&openSessionID); err != nil {
-		t.Fatalf("expected no error creating open cash drawer session, got %v", err)
-	}
-	if openSessionID <= 0 {
-		t.Fatalf("expected positive session id, got %d", openSessionID)
-	}
-
-	if _, err := service.Login(other.UserEmail, other.UserPassword, locationID, "device-abc"); err == nil || !strings.Contains(strings.ToLower(err.Error()), "browser ini masih terikat") {
-		t.Fatalf("expected login to be blocked by open cash session on same device, got %v", err)
-	}
-
-	token, err := service.Login(cashier.UserEmail, cashier.UserPassword, locationID, "device-abc")
-	if err != nil {
-		t.Fatalf("expected same cashier to be allowed, got %v", err)
-	}
-	if strings.TrimSpace(token) == "" {
-		t.Fatalf("expected token to be returned")
 	}
 }
 

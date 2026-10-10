@@ -107,7 +107,7 @@ func WriteEmailMessage(from, to, subject, body string) []byte {
 }
 
 func WriteHTMLMultipartEmailMessage(from, to, subject, textBody, htmlBody string) []byte {
-	boundary := fmt.Sprintf("procurement-%d", time.Now().UnixNano())
+	boundary := fmt.Sprintf("template-%d", time.Now().UnixNano())
 	var buf bytes.Buffer
 	buf.WriteString(fmt.Sprintf("From: %s\r\n", from))
 	buf.WriteString(fmt.Sprintf("To: %s\r\n", to))

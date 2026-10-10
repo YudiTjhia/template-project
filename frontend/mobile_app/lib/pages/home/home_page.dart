@@ -6,6 +6,7 @@ import '../../shared/theme/app_theme.dart';
 import '../../navigation/app_drawer_menu.dart';
 import '../../navigation/app_bottom_menu.dart';
 import '../../shared/widgets/bottom_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 class HomePage extends StatelessWidget {
   const HomePage({
@@ -32,7 +33,12 @@ class HomePage extends StatelessWidget {
       drawer: enableDrawer
           ? AppDrawerMenu(selectedRoute: '/home', headerTitle: title)
           : null,
-      body: SafeArea(
+      body: ResponsivePageLayout(
+        maxWidth: 1280,
+        safeArea: true,
+        compactPadding: 0,
+        mediumPadding: 0,
+        expandedPadding: 0,
         child: CustomScrollView(
           slivers: [
             SliverPadding(

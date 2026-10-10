@@ -6,6 +6,7 @@ import '../../services/login_service.dart';
 import '../../config/app_config.dart';
 import '../../shared/widgets/msg_box.dart';
 import '../../widgets/login_component.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 import 'register_page.dart';
 
 const _loginBackground = Color(0xFFB9E3FF);
@@ -80,23 +81,29 @@ class _LoginPageState extends State<LoginPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _loginBackground,
-      body: LoginComponent(
-        formKey: formKey,
-        emailController: emailController,
-        passwordController: passwordController,
-        isLoading: isLoading,
-        appTitle: widget._appTitle,
-        logo: widget.logo,
-        onLogin: login,
-        onRegister: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) =>
-                  RegisterPage(appTitle: widget._appTitle, logo: widget.logo),
-            ),
-          );
-        },
+      body: ResponsivePageLayout(
+        maxWidth: 520,
+        compactPadding: 0,
+        mediumPadding: 24,
+        expandedPadding: 32,
+        child: LoginComponent(
+          formKey: formKey,
+          emailController: emailController,
+          passwordController: passwordController,
+          isLoading: isLoading,
+          appTitle: widget._appTitle,
+          logo: widget.logo,
+          onLogin: login,
+          onRegister: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) =>
+                    RegisterPage(appTitle: widget._appTitle, logo: widget.logo),
+              ),
+            );
+          },
+        ),
       ),
     );
   }

@@ -33,7 +33,7 @@ func (m Auth) Migrate() {
 	}
 }
 
-func (m Auth) TableName() string { return "auths" }
+func (m Auth) TableName() string { return mmodels.AuthTable }
 
 func (m Auth) ValidateCreate() error { return m.mmodel().ValidateCreate() }
 

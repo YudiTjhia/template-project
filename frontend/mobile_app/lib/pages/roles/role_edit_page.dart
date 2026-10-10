@@ -6,6 +6,7 @@ import 'package:mobile_app/shared/widgets/edit_fields.dart';
 import 'package:mobile_app/navigation/app_drawer_menu.dart';
 
 import 'role_actions_lookup_dialog.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 class RoleEditPage extends StatefulWidget {
   const RoleEditPage({
@@ -154,41 +155,45 @@ class _RoleEditPageState extends State<RoleEditPage> {
       drawer: widget.enableDrawer
           ? const AppDrawerMenu(selectedRoute: '/roles')
           : null,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _loadForm,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Coba lagi'),
-                    ),
-                  ],
+      body: ResponsivePageLayout(
+        maxWidth: 760,
+        safeArea: true,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadForm,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Coba lagi'),
+                      ),
+                    ],
+                  ),
+                ),
+              )
+            : SafeArea(
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.symmetric(vertical: 20),
+                  child: EditComponent(
+                    fields: _fields,
+                    additionalFields: [_buildActionSelector()],
+                    mode: _isCreate ? EditFormMode.create : EditFormMode.edit,
+                    isLoading: _saving,
+                    onCancel: () => Navigator.of(context).pop(false),
+                    onSaveNew: _save,
+                    onUpdate: _save,
+                    onDelete: _isCreate ? null : _delete,
+                  ),
                 ),
               ),
-            )
-          : SafeArea(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: EditComponent(
-                  fields: _fields,
-                  additionalFields: [_buildActionSelector()],
-                  mode: _isCreate ? EditFormMode.create : EditFormMode.edit,
-                  isLoading: _saving,
-                  onCancel: () => Navigator.of(context).pop(false),
-                  onSaveNew: _save,
-                  onUpdate: _save,
-                  onDelete: _isCreate ? null : _delete,
-                ),
-              ),
-            ),
+      ),
     );
   }
 

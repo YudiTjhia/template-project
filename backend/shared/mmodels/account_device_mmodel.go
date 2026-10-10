@@ -38,7 +38,7 @@ func NewAccountDeviceMModel(ctx context.Context, db *sqlx.DB) *AccountDeviceMMod
 	return &AccountDeviceMModel{
 		IsActive: true,
 		MModel: impl.MModel{
-			Context: ctx, Name: "AccountDevice", TableName: "account_devices", DB: db,
+			Context: ctx, Name: "AccountDevice", TableName: AccountDeviceTable, DB: db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
 				impl.MField{Type: "int64", DbType: "BIGINT", JsonTag: "account_id", DbTag: "account_id", Required: true, IsNotUpdateField: true},
@@ -75,19 +75,19 @@ func (m *AccountDeviceMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS location_id BIGINT`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS last_location_selected_at TIMESTAMPTZ`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
-		`ALTER TABLE account_devices ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_account_devices_account_device ON account_devices (account_id, device_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_account_devices_account_id ON account_devices (account_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_account_devices_location_id ON account_devices (location_id)`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS device_id VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS location_id BIGINT`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS last_login_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS last_location_selected_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AccountDeviceTable + ` ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_account_devices_account_device ON ` + AccountDeviceTable + ` (account_id, device_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_account_devices_account_id ON ` + AccountDeviceTable + ` (account_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_account_devices_location_id ON ` + AccountDeviceTable + ` (location_id)`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(m.ContextOrBackground(), statement); err != nil {
@@ -154,7 +154,7 @@ func (m *AccountDeviceMModel) UpsertLogin(lastLoginAt time.Time) (*AccountDevice
 	}
 	var id int64
 	err := m.DB.QueryRowxContext(m.ContextOrBackground(), `
-		INSERT INTO account_devices
+		INSERT INTO `+AccountDeviceTable+`
 		(account_id, device_id, location_id, last_login_at, last_location_selected_at, is_active, created_by, updated_by)
 		VALUES ($1, $2, $3, $4, $5, TRUE, $6, $7)
 		ON CONFLICT (account_id, device_id) DO UPDATE SET
@@ -184,7 +184,7 @@ func (m *AccountDeviceMModel) UpdateLocation(locationID *int64, actor string) (*
 	}
 	var id int64
 	err := m.DB.QueryRowxContext(m.ContextOrBackground(), `
-		UPDATE account_devices
+		UPDATE `+AccountDeviceTable+`
 		SET location_id = $1, last_location_selected_at = NOW(), is_active = TRUE,
 			updated_at = NOW(), updated_by = $2
 		WHERE account_id = $3 AND device_id = $4

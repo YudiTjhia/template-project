@@ -4,6 +4,7 @@ import '../../models/chat_message.dart';
 import '../../navigation/app_bottom_menu.dart';
 import '../../navigation/app_drawer_menu.dart';
 import '../../shared/widgets/bottom_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 import '../../widgets/chat_component.dart';
 
 class ChatPage extends StatefulWidget {
@@ -54,10 +55,16 @@ class _ChatPageState extends State<ChatPage> {
       drawer: widget.enableDrawer
           ? const AppDrawerMenu(selectedRoute: '/ai-chat')
           : null,
-      body: ChatComponent(
-        messages: _messages,
-        controller: _messageController,
-        onSend: _sendMessage,
+      body: ResponsivePageLayout(
+        maxWidth: 1100,
+        compactPadding: 0,
+        mediumPadding: 0,
+        expandedPadding: 0,
+        child: ChatComponent(
+          messages: _messages,
+          controller: _messageController,
+          onSend: _sendMessage,
+        ),
       ),
       bottomNavigationBar: widget.useBottomMenu
           ? const AppBottomMenu(selected: MenuDestination.aiChat)

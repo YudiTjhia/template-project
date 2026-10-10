@@ -57,7 +57,7 @@ func (s *AccountService) accountFromMModel(value mmodels.AccountMModel) models.A
 		BaseModel: models.BaseModel{DB: s.DB, Auth: s.Auth, CreatedAt: value.CreatedAt, CreatedBy: value.CreatedBy},
 		ID:        value.ID, AccountName: value.AccountName, CompanyName: value.CompanyName,
 		CompanyLogoURL: value.CompanyLogoURL, IsActive: value.IsActive, AccountEmail: value.AccountEmail,
-		ReferralCode: value.ReferralCode, Address: value.Address, Latitude: value.Latitude,
+		Address: value.Address, Latitude: value.Latitude,
 		Longitude: value.Longitude, MobilePhone: value.MobilePhone, Phone: value.Phone,
 		TermsAccepted: value.TermsAccepted, TermsVersion: value.TermsVersion, OTP: value.OTP,
 		TermsAcceptedAt: value.TermsAcceptedAt, OTPExpired: value.OTPExpired,
@@ -84,7 +84,6 @@ func (s *AccountService) CreateAccount(account models.Account) (int64, error) {
 	acc.CompanyLogoURL = account.CompanyLogoURL
 	acc.IsActive = account.IsActive
 	acc.AccountEmail = account.AccountEmail
-	acc.ReferralCode = account.ReferralCode
 	acc.Address = account.Address
 	acc.Latitude = account.Latitude
 	acc.Longitude = account.Longitude
@@ -124,9 +123,6 @@ func (s *AccountService) CreateAccount(account models.Account) (int64, error) {
 
 func (s *AccountService) RegisterAccount(account models.Account) (int64, string, time.Time, error) {
 	if err := validateRegisterAccount(account); err != nil {
-		return 0, "", time.Time{}, err
-	}
-	if err := s.validateReferralCode(account.ReferralCode); err != nil {
 		return 0, "", time.Time{}, err
 	}
 	if err := validateRegisterPassword(account.Password, account.ConfirmPassword); err != nil {
@@ -187,18 +183,10 @@ func (s *AccountService) createRegistrationAccount(account models.Account) (int6
 	}
 	account.ID = id
 
-	userID, err := s.CreateUserFromAccount(account, account.Password)
+	_, err = s.CreateUserFromAccount(account, account.Password)
 	if err != nil {
 		return 0, "", time.Time{}, err
 	}
-	partnerService := NewSalesPartnerServiceWithDatabases(s.TransactionDB, s.DB, s.Auth)
-	if _, err := partnerService.EnsureForUser(userID); err != nil {
-		return 0, "", time.Time{}, err
-	}
-	if err := partnerService.LinkReferredAccount(id, account.ReferralCode); err != nil {
-		return 0, "", time.Time{}, err
-	}
-
 	s.sendRegisterOTPEmailAsync(account, otp, expired)
 
 	return id, otp, expired, nil
@@ -217,9 +205,6 @@ func (s *AccountService) resendRegistrationOTP(existingAccount models.Account, a
 	existingAccount.CompanyLogoURL = account.CompanyLogoURL
 	existingAccount.IsActive = false
 	existingAccount.AccountEmail = account.AccountEmail
-	if strings.TrimSpace(account.ReferralCode) != "" {
-		existingAccount.ReferralCode = account.ReferralCode
-	}
 	existingAccount.Address = account.Address
 	existingAccount.Latitude = account.Latitude
 	existingAccount.Longitude = account.Longitude
@@ -254,18 +239,10 @@ func (s *AccountService) resendRegistrationOTP(existingAccount models.Account, a
 	account.OTP = otp
 	account.OTPExpired = &expired
 	account.CreatedBy = existingAccount.CreatedBy
-	user, err := s.upsertRegistrationUser(account)
+	_, err = s.upsertRegistrationUser(account)
 	if err != nil {
 		return 0, "", time.Time{}, err
 	}
-	partnerService := NewSalesPartnerServiceWithDatabases(s.TransactionDB, s.DB, s.Auth)
-	if _, err := partnerService.EnsureForUser(user.ID); err != nil {
-		return 0, "", time.Time{}, err
-	}
-	if err := partnerService.LinkReferredAccount(existingAccount.ID, existingAccount.ReferralCode); err != nil {
-		return 0, "", time.Time{}, err
-	}
-
 	s.sendRegisterOTPEmailAsync(account, otp, expired)
 
 	return existingAccount.ID, otp, expired, nil
@@ -339,7 +316,6 @@ func (s *AccountService) UpdateAccount(account models.Account) error {
 	acc.CompanyLogoURL = account.CompanyLogoURL
 	acc.IsActive = account.IsActive
 	acc.AccountEmail = account.AccountEmail
-	acc.ReferralCode = account.ReferralCode
 	acc.Address = account.Address
 	acc.Latitude = account.Latitude
 	acc.Longitude = account.Longitude
@@ -396,7 +372,7 @@ func (s *AccountService) ActivateAccount(id int64) error {
 		updatedBy = "system"
 	}
 
-	sql := `UPDATE accounts
+	sql := `UPDATE ` + mmodels.AccountTable + `
 	SET is_active = true,
 		updated_at = NOW(),
 		updated_by = $1
@@ -515,7 +491,7 @@ func (s *AccountService) activateUsersForAccount(accountID int64, updatedBy stri
 	}
 
 	_, err := s.DB.Exec(`
-		UPDATE users
+		UPDATE `+mmodels.UserTable+`
 		SET is_active = true,
 			updated_at = NOW(),
 			updated_by = $1
@@ -759,21 +735,6 @@ func validateRegisterAccount(account models.Account) error {
 		return errors.New("mobilephone minimal 6 karakter")
 	}
 
-	return nil
-}
-
-func (s *AccountService) validateReferralCode(code string) error {
-	code = strings.ToUpper(strings.TrimSpace(code))
-	if code == "" {
-		return nil
-	}
-	var exists bool
-	if err := s.TransactionDB.Get(&exists, `SELECT EXISTS (SELECT 1 FROM sales_partners WHERE LOWER(referral_code)=LOWER($1) AND status='ACTIVE')`, code); err != nil {
-		return err
-	}
-	if !exists {
-		return errors.New("refer code tidak ditemukan atau tidak aktif")
-	}
 	return nil
 }
 

@@ -164,7 +164,7 @@ func (s *UserService) UpdateCurrentProfile(id int64, username, email string) err
 	defer func() { _ = tx.Rollback() }()
 
 	result, err := tx.Exec(`
-		UPDATE users
+		UPDATE `+mmodels.UserTable+`
 		SET username = $1, user_email = $2, updated_at = NOW(), updated_by = $3
 		WHERE id = $4 AND account_id = $5 AND LOWER(user_email) = LOWER($6)`,
 		username, email, currentEmail, id, s.Auth.AccountID, currentEmail,
@@ -180,7 +180,7 @@ func (s *UserService) UpdateCurrentProfile(id int64, username, email string) err
 		return errors.New("profil user tidak ditemukan atau bukan milik sesi ini")
 	}
 	if _, err := tx.Exec(`
-		UPDATE auths SET email = $1, updated_at = NOW()
+		UPDATE `+mmodels.AuthTable+` SET email = $1, updated_at = NOW()
 		WHERE account_id = $2 AND LOWER(email) = LOWER($3)`,
 		email, s.Auth.AccountID, currentEmail,
 	); err != nil {
@@ -199,7 +199,7 @@ func (s *UserService) ActivateUser(id int64) error {
 		updatedBy = "system"
 	}
 
-	sql := `UPDATE users
+	sql := `UPDATE ` + mmodels.UserTable + `
 	SET is_active = true,
 		updated_at = NOW(),
 		updated_by = $1
@@ -301,20 +301,20 @@ func (s *UserService) CountActiveUsers(accountID int64) (int, error) {
 		accountID = s.Auth.AccountID
 	}
 	var count int
-	err := s.DB.Get(&count, `SELECT COUNT(*) FROM users WHERE account_id = $1 AND is_active = true`, accountID)
+	err := s.DB.Get(&count, `SELECT COUNT(*) FROM `+mmodels.UserTable+` WHERE account_id = $1 AND is_active = true`, accountID)
 	return count, err
 }
 
 func (s *UserService) currentSubscriptionPlan(accountID int64) (models.SubscriptionPlan, error) {
 	var code string
-	err := s.DB.Get(&code, `SELECT plan_code FROM subscriptions WHERE account_id = $1`, accountID)
+	err := s.DB.Get(&code, `SELECT plan_code FROM `+mmodels.SubscriptionTable+` WHERE account_id = $1`, accountID)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) || isMissingUserSubscriptionPlanColumn(err) {
 			return models.SubscriptionPlanByCode("STARTER"), nil
 		}
 		return models.SubscriptionPlan{}, err
 	}
-	return models.SubscriptionPlanByCode(code), nil
+	return models.SubscriptionPlanByCodeFromDB(s.DB, code)
 }
 
 func isMissingUserSubscriptionPlanColumn(err error) bool {

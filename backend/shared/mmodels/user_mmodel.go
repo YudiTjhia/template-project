@@ -49,7 +49,7 @@ func NewUserMModel(ctx context.Context, db *sqlx.DB) *UserMModel {
 		MModel: impl.MModel{
 			Context:   ctx,
 			Name:      "User",
-			TableName: "users",
+			TableName: UserTable,
 			DB:        db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
@@ -107,29 +107,29 @@ func (m *UserMModel) Migrate() error {
 }
 
 var userSchemaUpgradeStatements = []string{
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_email VARCHAR(255) NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_password TEXT NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS pin TEXT NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ALTER COLUMN pin TYPE TEXT`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_type VARCHAR(20) NOT NULL DEFAULT 'SUPER_ADMIN'`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS login_type VARCHAR(30) NOT NULL DEFAULT 'cashier'`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS user_roles TEXT[] NOT NULL DEFAULT '{}'::TEXT[]`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS username VARCHAR(255) NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
-	`ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
-	`UPDATE users SET login_type = 'cashier' WHERE login_type IS NULL OR TRIM(login_type) = ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS user_email VARCHAR(255) NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS user_password TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS pin TEXT NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ALTER COLUMN pin TYPE TEXT`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS user_type VARCHAR(20) NOT NULL DEFAULT 'SUPER_ADMIN'`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS login_type VARCHAR(30) NOT NULL DEFAULT 'cashier'`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS user_roles TEXT[] NOT NULL DEFAULT '{}'::TEXT[]`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS username VARCHAR(255) NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+	`ALTER TABLE ` + UserTable + ` ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
+	`UPDATE ` + UserTable + ` SET login_type = 'cashier' WHERE login_type IS NULL OR TRIM(login_type) = ''`,
 	`DROP INDEX IF EXISTS idx_users_account_email`,
 	`DROP INDEX IF EXISTS idx_users_account_mobilephone`,
-	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON users (LOWER(user_email))`,
-	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_mobilephone ON users (LOWER(mobilephone)) WHERE mobilephone <> ''`,
-	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_username ON users (account_id, LOWER(username))`,
-	`CREATE INDEX IF NOT EXISTS idx_users_account_id ON users (account_id)`,
-	`CREATE INDEX IF NOT EXISTS idx_users_active ON users (is_active)`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_email ON ` + UserTable + ` (LOWER(user_email))`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_mobilephone ON ` + UserTable + ` (LOWER(mobilephone)) WHERE mobilephone <> ''`,
+	`CREATE UNIQUE INDEX IF NOT EXISTS idx_users_account_username ON ` + UserTable + ` (account_id, LOWER(username))`,
+	`CREATE INDEX IF NOT EXISTS idx_users_account_id ON ` + UserTable + ` (account_id)`,
+	`CREATE INDEX IF NOT EXISTS idx_users_active ON ` + UserTable + ` (is_active)`,
 }
 
 func (m *UserMModel) migrateLegacyCredentials(tx *sqlx.Tx) error {
@@ -141,7 +141,7 @@ func (m *UserMModel) migrateLegacyCredentials(tx *sqlx.Tx) error {
 	var rows []credentialRow
 	if err := tx.SelectContext(m.ContextOrBackground(), &rows, `
 		SELECT id, user_password, pin
-		FROM users
+		FROM `+UserTable+`
 		WHERE (user_password <> '' AND user_password NOT LIKE '$2%')
 		   OR (pin <> '' AND pin NOT LIKE '$2%')`); err != nil {
 		return fmt.Errorf("read legacy user credentials: %w", err)
@@ -161,7 +161,7 @@ func (m *UserMModel) migrateLegacyCredentials(tx *sqlx.Tx) error {
 				return fmt.Errorf("hash legacy PIN for user %d: %w", row.ID, err)
 			}
 		}
-		if _, err := tx.ExecContext(m.ContextOrBackground(), `UPDATE users SET user_password = $1, pin = $2 WHERE id = $3`, password, pin, row.ID); err != nil {
+		if _, err := tx.ExecContext(m.ContextOrBackground(), `UPDATE `+UserTable+` SET user_password = $1, pin = $2 WHERE id = $3`, password, pin, row.ID); err != nil {
 			return fmt.Errorf("update legacy credentials for user %d: %w", row.ID, err)
 		}
 	}

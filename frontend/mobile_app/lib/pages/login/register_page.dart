@@ -6,6 +6,7 @@ import '../../config/app_config.dart';
 import '../../shared/widgets/confirm_box.dart';
 import '../../shared/widgets/msg_box.dart';
 import '../../widgets/register_component.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 const _registerBackground = Color(0xFFB9E3FF);
 
@@ -136,21 +137,27 @@ class _RegisterPageState extends State<RegisterPage> {
     return Scaffold(
       backgroundColor: _registerBackground,
       appBar: AppBar(title: const Text('Registrasi Pelanggan')),
-      body: RegisterComponent(
-        formKey: formKey,
-        confirmPasswordFieldKey: confirmPasswordFieldKey,
-        nameController: nameController,
-        emailController: emailController,
-        phoneController: phoneController,
-        passwordController: passwordController,
-        confirmPasswordController: confirmPasswordController,
-        isLoading: isLoading,
-        onRegister: register,
-        onLogin: () => Navigator.pop(context),
-        validatePassword: validatePassword,
-        validateConfirmPassword: validateConfirmPasswordField,
-        appTitle: widget._appTitle,
-        logo: widget.logo,
+      body: ResponsivePageLayout(
+        maxWidth: 560,
+        compactPadding: 0,
+        mediumPadding: 24,
+        expandedPadding: 32,
+        child: RegisterComponent(
+          formKey: formKey,
+          confirmPasswordFieldKey: confirmPasswordFieldKey,
+          nameController: nameController,
+          emailController: emailController,
+          phoneController: phoneController,
+          passwordController: passwordController,
+          confirmPasswordController: confirmPasswordController,
+          isLoading: isLoading,
+          onRegister: register,
+          onLogin: () => Navigator.pop(context),
+          validatePassword: validatePassword,
+          validateConfirmPassword: validateConfirmPasswordField,
+          appTitle: widget._appTitle,
+          logo: widget.logo,
+        ),
       ),
     );
   }

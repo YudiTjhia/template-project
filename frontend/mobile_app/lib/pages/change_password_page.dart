@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../navigation/app_drawer_menu.dart';
 import '../services/login_service.dart';
 import '../shared/widgets/msg_box.dart';
+import '../shared/widgets/responsive_page_layout.dart';
 
 class ChangePasswordPage extends StatefulWidget {
   const ChangePasswordPage({super.key, this.service, this.enableDrawer = true});
@@ -71,77 +72,82 @@ class _ChangePasswordPageState extends State<ChangePasswordPage> {
       drawer: widget.enableDrawer
           ? const AppDrawerMenu(selectedRoute: '/profile/change-password')
           : null,
-      body: SafeArea(
-        child: Form(
-          key: _formKey,
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              Text(
-                'Perbarui password account Anda.',
-                style: Theme.of(context).textTheme.bodyLarge,
-              ),
-              const SizedBox(height: 20),
-              _passwordField(
-                controller: _currentPassword,
-                label: 'Password saat ini',
-                obscure: _obscureCurrent,
-                toggleObscure: () =>
-                    setState(() => _obscureCurrent = !_obscureCurrent),
-                validator: (value) => value == null || value.isEmpty
-                    ? 'Password saat ini wajib diisi'
-                    : null,
-              ),
-              const SizedBox(height: 16),
-              _passwordField(
-                controller: _newPassword,
-                label: 'Password baru',
-                obscure: _obscureNew,
-                toggleObscure: () => setState(() => _obscureNew = !_obscureNew),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Password baru wajib diisi';
-                  }
-                  if (value.length < 6) return 'Password minimal 6 karakter';
-                  if (value == _currentPassword.text) {
-                    return 'Password baru harus berbeda';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 16),
-              _passwordField(
-                controller: _confirmPassword,
-                label: 'Konfirmasi password baru',
-                obscure: _obscureConfirm,
-                toggleObscure: () =>
-                    setState(() => _obscureConfirm = !_obscureConfirm),
-                onSubmitted: (_) => _changePassword(),
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Konfirmasi password wajib diisi';
-                  }
-                  if (value != _newPassword.text) {
-                    return 'Konfirmasi password tidak sama';
-                  }
-                  return null;
-                },
-              ),
-              const SizedBox(height: 24),
-              SizedBox(
-                height: 52,
-                child: FilledButton.icon(
-                  onPressed: _saving ? null : _changePassword,
-                  icon: _saving
-                      ? const SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        )
-                      : const Icon(Icons.lock_reset_outlined),
-                  label: const Text('Simpan password'),
+      body: ResponsivePageLayout(
+        maxWidth: 720,
+        safeArea: true,
+        child: SafeArea(
+          child: Form(
+            key: _formKey,
+            child: ListView(
+              padding: const EdgeInsets.all(20),
+              children: [
+                Text(
+                  'Perbarui password account Anda.',
+                  style: Theme.of(context).textTheme.bodyLarge,
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                _passwordField(
+                  controller: _currentPassword,
+                  label: 'Password saat ini',
+                  obscure: _obscureCurrent,
+                  toggleObscure: () =>
+                      setState(() => _obscureCurrent = !_obscureCurrent),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Password saat ini wajib diisi'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+                _passwordField(
+                  controller: _newPassword,
+                  label: 'Password baru',
+                  obscure: _obscureNew,
+                  toggleObscure: () =>
+                      setState(() => _obscureNew = !_obscureNew),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Password baru wajib diisi';
+                    }
+                    if (value.length < 6) return 'Password minimal 6 karakter';
+                    if (value == _currentPassword.text) {
+                      return 'Password baru harus berbeda';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                _passwordField(
+                  controller: _confirmPassword,
+                  label: 'Konfirmasi password baru',
+                  obscure: _obscureConfirm,
+                  toggleObscure: () =>
+                      setState(() => _obscureConfirm = !_obscureConfirm),
+                  onSubmitted: (_) => _changePassword(),
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Konfirmasi password wajib diisi';
+                    }
+                    if (value != _newPassword.text) {
+                      return 'Konfirmasi password tidak sama';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 24),
+                SizedBox(
+                  height: 52,
+                  child: FilledButton.icon(
+                    onPressed: _saving ? null : _changePassword,
+                    icon: _saving
+                        ? const SizedBox.square(
+                            dimension: 18,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.lock_reset_outlined),
+                    label: const Text('Simpan password'),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
       ),

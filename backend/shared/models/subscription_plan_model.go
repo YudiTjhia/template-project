@@ -1,49 +1,78 @@
 package models
 
 import (
+	"context"
+	"errors"
 	"os"
 	"strconv"
 	"strings"
+
+	"backend/shared/mmodels"
+	"github.com/jmoiron/sqlx"
 )
 
-type SubscriptionPlanLimits struct {
-	Users                     int `json:"users"`
-	Locations                 int `json:"locations"`
-	Products                  int `json:"products"`
-	Categories                int `json:"categories"`
-	Brands                    int `json:"brands"`
-	Customers                 int `json:"customers"`
-	Suppliers                 int `json:"suppliers"`
-	SalesTransactionsPerMonth int `json:"salesTransactionsPerMonth"`
-	SalesReturnsPerMonth      int `json:"salesReturnsPerMonth"`
-	PurchaseStockInPerMonth   int `json:"purchaseStockInPerMonth"`
-	StockTransfersPerMonth    int `json:"stockTransfersPerMonth"`
-	StockOpnamesPerMonth      int `json:"stockOpnamesPerMonth"`
-	PaymentMethods            int `json:"paymentMethods"`
-	PriceLists                int `json:"priceLists"`
-	Promotions                int `json:"promotions"`
-	StorageGB                 int `json:"storageGb"`
-}
+type SubscriptionPlanLimits = mmodels.SubscriptionPlanLimits
 
 type SubscriptionPlan struct {
+	ID          int64                  `json:"id,omitempty"`
 	Code        string                 `json:"code"`
 	Name        string                 `json:"name"`
 	Price       float64                `json:"price"`
 	Currency    string                 `json:"currency"`
 	Description string                 `json:"description"`
 	Limits      SubscriptionPlanLimits `json:"limits"`
+	Active      bool                   `json:"active"`
+	SortOrder   int                    `json:"sortOrder"`
 }
 
 func SubscriptionPlansFromEnv() []SubscriptionPlan {
 	plans := []SubscriptionPlan{
-		defaultSubscriptionPlan("STARTER", "Starter", 399000, SubscriptionPlanLimits{Users: 1, Locations: 1, Products: 1000, Categories: 100, Brands: 100, Customers: 2000, Suppliers: 200, SalesTransactionsPerMonth: 5000, SalesReturnsPerMonth: 500, PurchaseStockInPerMonth: 1000, StockTransfersPerMonth: 500, StockOpnamesPerMonth: 20, PaymentMethods: 10, PriceLists: 5, Promotions: 20, StorageGB: 2}),
-		defaultSubscriptionPlan("BUSINESS", "Business", 699000, SubscriptionPlanLimits{Users: 3, Locations: 2, Products: 5000, Categories: 500, Brands: 500, Customers: 10000, Suppliers: 1000, SalesTransactionsPerMonth: 15000, SalesReturnsPerMonth: 1500, PurchaseStockInPerMonth: 3000, StockTransfersPerMonth: 1500, StockOpnamesPerMonth: 60, PaymentMethods: 30, PriceLists: 20, Promotions: 100, StorageGB: 10}),
-		defaultSubscriptionPlan("PRO", "Pro", 1199000, SubscriptionPlanLimits{Users: 10, Locations: 5, Products: 20000, Categories: 2000, Brands: 2000, Customers: 100000, Suppliers: 100000, SalesTransactionsPerMonth: 50000, SalesReturnsPerMonth: 5000, PurchaseStockInPerMonth: 10000, StockTransfersPerMonth: 5000, StockOpnamesPerMonth: 200, PaymentMethods: 100, PriceLists: 100000, Promotions: 100000, StorageGB: 50}),
+		defaultSubscriptionPlan("STARTER", "Starter", 399000, SubscriptionPlanLimits{Users: 1, Locations: 1, Products: 1000, Categories: 100, Brands: 100, Customers: 2000, Suppliers: 200, PaymentMethods: 10, PriceLists: 5, Promotions: 20, StorageGB: 2}),
+		defaultSubscriptionPlan("BUSINESS", "Business", 699000, SubscriptionPlanLimits{Users: 3, Locations: 2, Products: 5000, Categories: 500, Brands: 500, Customers: 10000, Suppliers: 1000, PaymentMethods: 30, PriceLists: 20, Promotions: 100, StorageGB: 10}),
+		defaultSubscriptionPlan("PRO", "Pro", 1199000, SubscriptionPlanLimits{Users: 10, Locations: 5, Products: 20000, Categories: 2000, Brands: 2000, Customers: 100000, Suppliers: 100000, PaymentMethods: 100, PriceLists: 100000, Promotions: 100000, StorageGB: 50}),
 	}
 	for index := range plans {
+		plans[index].Active = true
+		plans[index].SortOrder = (index + 1) * 10
 		applySubscriptionPlanEnv(&plans[index])
 	}
 	return plans
+}
+
+func SubscriptionPlansFromDB(db *sqlx.DB, activeOnly bool) ([]SubscriptionPlan, error) {
+	if db == nil {
+		return nil, errors.New("subscription plan database is nil")
+	}
+	model := mmodels.NewSubscriptionPlanMModel(context.Background(), db)
+	rows, err := model.FindList(activeOnly)
+	if err != nil {
+		return nil, err
+	}
+	plans := make([]SubscriptionPlan, 0, len(rows))
+	for _, row := range rows {
+		plans = append(plans, subscriptionPlanFromMModel(row))
+	}
+	return plans, nil
+}
+
+func SubscriptionPlanByCodeFromDB(db *sqlx.DB, code string) (SubscriptionPlan, error) {
+	if db == nil {
+		return SubscriptionPlan{}, errors.New("subscription plan database is nil")
+	}
+	model := mmodels.NewSubscriptionPlanMModel(context.Background(), db)
+	row, err := model.FindByCode(code)
+	if err != nil {
+		return SubscriptionPlan{}, err
+	}
+	return subscriptionPlanFromMModel(*row), nil
+}
+
+func subscriptionPlanFromMModel(value mmodels.SubscriptionPlanMModel) SubscriptionPlan {
+	return SubscriptionPlan{
+		ID: value.ID, Code: value.Code, Name: value.Name, Price: value.Price,
+		Currency: value.Currency, Description: value.Description, Limits: value.Limits,
+		Active: value.Active, SortOrder: value.SortOrder,
+	}
 }
 
 func SubscriptionPlanByCode(code string) SubscriptionPlan {
@@ -83,11 +112,6 @@ func applySubscriptionPlanEnv(plan *SubscriptionPlan) {
 	plan.Limits.Brands = getenvSubscriptionPlanInt(prefix+"MAX_BRANDS", plan.Limits.Brands)
 	plan.Limits.Customers = getenvSubscriptionPlanInt(prefix+"MAX_CUSTOMERS", plan.Limits.Customers)
 	plan.Limits.Suppliers = getenvSubscriptionPlanInt(prefix+"MAX_SUPPLIERS", plan.Limits.Suppliers)
-	plan.Limits.SalesTransactionsPerMonth = getenvSubscriptionPlanInt(prefix+"MAX_SALES_TRANSACTIONS_PER_MONTH", plan.Limits.SalesTransactionsPerMonth)
-	plan.Limits.SalesReturnsPerMonth = getenvSubscriptionPlanInt(prefix+"MAX_SALES_RETURNS_PER_MONTH", plan.Limits.SalesReturnsPerMonth)
-	plan.Limits.PurchaseStockInPerMonth = getenvSubscriptionPlanInt(prefix+"MAX_PURCHASE_STOCK_IN_PER_MONTH", plan.Limits.PurchaseStockInPerMonth)
-	plan.Limits.StockTransfersPerMonth = getenvSubscriptionPlanInt(prefix+"MAX_STOCK_TRANSFERS_PER_MONTH", plan.Limits.StockTransfersPerMonth)
-	plan.Limits.StockOpnamesPerMonth = getenvSubscriptionPlanInt(prefix+"MAX_STOCK_OPNAMES_PER_MONTH", plan.Limits.StockOpnamesPerMonth)
 	plan.Limits.PaymentMethods = getenvSubscriptionPlanInt(prefix+"MAX_PAYMENT_METHODS", plan.Limits.PaymentMethods)
 	plan.Limits.PriceLists = getenvSubscriptionPlanInt(prefix+"MAX_PRICE_LISTS", plan.Limits.PriceLists)
 	plan.Limits.Promotions = getenvSubscriptionPlanInt(prefix+"MAX_PROMOTIONS", plan.Limits.Promotions)

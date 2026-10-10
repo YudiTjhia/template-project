@@ -4,6 +4,7 @@ import 'package:mobile_app/services/role_service.dart';
 import 'package:mobile_app/shared/widgets/edit_component.dart';
 import 'package:mobile_app/shared/widgets/edit_dialog.dart';
 import 'package:mobile_app/shared/widgets/edit_fields.dart';
+import 'package:mobile_app/shared/widgets/chips_list_widget.dart';
 
 import 'role_actions_lookup_dialog.dart';
 
@@ -234,18 +235,11 @@ class _RoleEditDialogState extends State<RoleEditDialog> {
         else
           Padding(
             padding: const EdgeInsets.only(top: 8),
-            child: Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: [
-                for (final action in _selectedActions)
-                  Chip(
-                    label: Text(action),
-                    onDeleted: _saving || _isView
-                        ? null
-                        : () => setState(() => _selectedActions.remove(action)),
-                  ),
-              ],
+            child: ChipsListWidget<String>(
+              items: _selectedActions.toList()..sort(),
+              onDeleted: _saving || _isView
+                  ? null
+                  : (action) => setState(() => _selectedActions.remove(action)),
             ),
           ),
       ],

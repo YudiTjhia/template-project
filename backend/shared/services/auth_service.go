@@ -124,7 +124,7 @@ func (s *AuthService) ensureAccountActive(accountID int64) error {
 		return errors.New("account user tidak valid")
 	}
 	var isActive bool
-	err := s.DB.Get(&isActive, `SELECT is_active FROM accounts WHERE id = $1`, accountID)
+	err := s.DB.Get(&isActive, `SELECT is_active FROM `+mmodels.AccountTable+` WHERE id = $1`, accountID)
 	if errors.Is(err, sql.ErrNoRows) {
 		return errors.New("account tidak ditemukan")
 	}
@@ -207,7 +207,7 @@ func (s *AuthService) ChangePasswordAndPIN(token, currentPassword, newPassword, 
 		}
 	}
 	updatedBy := record.Email
-	_, err = s.DB.Exec(`UPDATE users
+	_, err = s.DB.Exec(`UPDATE `+mmodels.UserTable+`
 		SET user_password = $1,
 			pin = CASE WHEN $2 = '' THEN pin ELSE $2 END,
 			updated_at = NOW(),
@@ -351,172 +351,15 @@ func (s *AuthService) recordDeviceLogin(record *models.User, deviceID string) {
 	}
 }
 
-func (s *AuthService) ensureLocationCashDrawerAccess(record *models.User, locationID int64, deviceID string) error {
-	if record == nil {
-		return nil
-	}
-
-	deviceID = strings.TrimSpace(deviceID)
-	if deviceID != "" {
-		var deviceSession struct {
-			ID          int64  `db:"id"`
-			CashierID   int64  `db:"cashier_id"`
-			CashierName string `db:"cashier_name"`
-			SessionNo   string `db:"session_no"`
-			DeviceID    string `db:"device_id"`
-		}
-		err := s.transactionDB().Get(&deviceSession, `
-			SELECT id, cashier_id, cashier_name, session_no, device_id
-			FROM cash_drawer_sessions
-			WHERE account_id = $1
-				AND device_id = $2
-				AND status = 'OPEN'
-			ORDER BY opened_at DESC, id DESC
-			LIMIT 1`,
-			record.AccountID,
-			deviceID,
-		)
-		if err != nil && !errors.Is(err, sql.ErrNoRows) {
-			return err
-		}
-		if err == nil && deviceSession.ID > 0 && deviceSession.CashierID > 0 && deviceSession.CashierID != record.ID {
-			sessionName := strings.TrimSpace(deviceSession.CashierName)
-			if sessionName == "" {
-				sessionName = fmt.Sprintf("user ID %d", deviceSession.CashierID)
-			}
-			return fmt.Errorf("login ditolak: browser ini masih terikat cash drawer session OPEN milik %s. Tutup session dulu atau gunakan user yang sama", sessionName)
-		}
-	}
-
-	if locationID <= 0 {
-		return nil
-	}
-
-	var session struct {
-		ID          int64  `db:"id"`
-		CashierID   int64  `db:"cashier_id"`
-		CashierName string `db:"cashier_name"`
-		SessionNo   string `db:"session_no"`
-		DeviceID    string `db:"device_id"`
-	}
-	err := s.transactionDB().Get(&session, `
-		SELECT id, cashier_id, cashier_name, session_no, device_id
-		FROM cash_drawer_sessions
-		WHERE account_id = $1
-			AND location_id = $2
-			AND status = 'OPEN'
-		ORDER BY opened_at DESC, id DESC
-		LIMIT 1`,
-		record.AccountID,
-		locationID,
-	)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return err
-	}
-
-	if session.CashierID <= 0 || session.CashierID == record.ID {
-		return nil
-	}
-
-	sessionName := strings.TrimSpace(session.CashierName)
-	if sessionName == "" {
-		sessionName = fmt.Sprintf("user ID %d", session.CashierID)
-	}
-
-	if strings.TrimSpace(session.DeviceID) != "" && deviceID != "" && strings.TrimSpace(session.DeviceID) != deviceID {
-		return fmt.Errorf("login ditolak: lokasi ini masih punya cash drawer session OPEN dari browser lain milik %s. Login dengan user yang sama atau close session dulu", sessionName)
-	}
-
-	return fmt.Errorf("login ditolak: cash drawer session OPEN di lokasi ini masih dipakai %s. Login dengan user yang sama atau close session dulu", sessionName)
-}
-
 func (s *AuthService) ExpireSession(token string) error {
 	token = strings.TrimSpace(token)
 	if token == "" {
 		return errors.New("token wajib diisi")
 	}
 
-	if err := s.ensureLogoutAllowed(token); err != nil {
-		return err
-	}
-
 	auth := s.newAuthMModel()
 	auth.Token = token
 	return auth.ExpireByToken()
-}
-
-func (s *AuthService) ensureLogoutAllowed(token string) error {
-	auth := s.newAuthMModel()
-	auth.Token = token
-	record, err := auth.FindByToken()
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "no rows") {
-			return nil
-		}
-		return err
-	}
-
-	user := models.NewUser(s.DB, models.Auth{AccountID: record.AccountID})
-	user.UserEmail = record.Email
-	cashier, err := user.FindByEmail()
-	if err != nil {
-		if strings.Contains(strings.ToLower(err.Error()), "no rows") {
-			return nil
-		}
-		return err
-	}
-
-	var sessionNo string
-	err = s.transactionDB().Get(&sessionNo, `
-		SELECT session_no
-		FROM cash_drawer_sessions
-		WHERE account_id = $1
-			AND cashier_id = $2
-			AND status = 'OPEN'
-		ORDER BY opened_at DESC, id DESC
-		LIMIT 1`, record.AccountID, cashier.ID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return s.ensureSalesLogoutAllowed(record.AccountID, cashier.ID)
-		}
-		return err
-	}
-
-	if err := fmt.Errorf("logout ditolak: cash drawer session OPEN (%s) masih aktif. Close session terlebih dahulu atau gunakan Lock", sessionNo); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (s *AuthService) ensureSalesLogoutAllowed(accountID, cashierID int64) error {
-	var pending struct {
-		SalesNo       string `db:"sales_no"`
-		OrderStatus   string `db:"order_status"`
-		PaymentStatus string `db:"payment_status"`
-	}
-
-	err := s.transactionDB().Get(&pending, `
-		SELECT sales_no, order_status, payment_status
-		FROM sales_orders
-		WHERE account_id = $1
-			AND cashier_id = $2
-			AND (
-				order_status = 'DRAFT'
-				OR payment_status IN ('UNPAID', 'PARTIAL')
-			)
-		ORDER BY created_at DESC, id DESC
-		LIMIT 1`, accountID, cashierID)
-	if err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil
-		}
-		return err
-	}
-
-	return fmt.Errorf("logout ditolak: transaksi %s masih %s dan belum lunas. Selesaikan atau batalkan transaksi terlebih dahulu, atau gunakan Lock", pending.SalesNo, strings.ToLower(strings.TrimSpace(pending.PaymentStatus)))
 }
 
 func (s *AuthService) RefreshSession(token string) (*models.Auth, error) {

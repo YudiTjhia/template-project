@@ -35,6 +35,14 @@ export default function LoginPage() {
         placeItems: 'center',
         py: 4,
         backgroundColor: 'primary.main',
+        '& > *': {
+          animation: 'auth-form-enter 3s cubic-bezier(0.2, 0.75, 0.25, 1) both',
+          '@media (prefers-reduced-motion: reduce)': { animation: 'none' },
+        },
+        '@keyframes auth-form-enter': {
+          from: { opacity: 0, transform: 'translateY(-48px)' },
+          to: { opacity: 1, transform: 'translateY(0)' },
+        },
       }}
     >
       <AuthPagePanel>

@@ -25,16 +25,6 @@ type RoleActionMModel struct {
 
 var defaultRoleActions = []RoleActionMModel{
 	{Code: "view_pos_dashboard", Label: "View POS Dashboard", SortOrder: 10, Active: true},
-	{Code: "view_sales_order", Label: "View Sales Order", SortOrder: 100, Active: true},
-	{Code: "create_sales_order", Label: "Create Sales Order", SortOrder: 110, Active: true},
-	{Code: "update_sales_order", Label: "Update Sales Order", SortOrder: 120, Active: true},
-	{Code: "delete_sales_order", Label: "Delete Sales Order", SortOrder: 130, Active: true},
-	{Code: "checkout_sales_order", Label: "Checkout Sales Order", SortOrder: 140, Active: true},
-	{Code: "cancel_sales_order", Label: "Cancel Sales Order", SortOrder: 150, Active: true},
-	{Code: "view_sales_return", Label: "View Sales Return", SortOrder: 200, Active: true},
-	{Code: "create_sales_return", Label: "Create Sales Return", SortOrder: 210, Active: true},
-	{Code: "refund_sales_return", Label: "Refund Sales Return", SortOrder: 220, Active: true},
-	{Code: "restock_sales_return", Label: "Restock Sales Return", SortOrder: 230, Active: true},
 	{Code: "view_customer", Label: "View Customer", SortOrder: 300, Active: true},
 	{Code: "create_customer", Label: "Create Customer", SortOrder: 310, Active: true},
 	{Code: "update_customer", Label: "Update Customer", SortOrder: 320, Active: true},
@@ -81,23 +71,6 @@ var defaultRoleActions = []RoleActionMModel{
 	{Code: "create_payment_method", Label: "Create Payment Method", SortOrder: 1010, Active: true},
 	{Code: "update_payment_method", Label: "Update Payment Method", SortOrder: 1020, Active: true},
 	{Code: "delete_payment_method", Label: "Delete Payment Method", SortOrder: 1030, Active: true},
-	{Code: "view_sales_return_reason", Label: "View Sales Return Reason", SortOrder: 1100, Active: true},
-	{Code: "create_sales_return_reason", Label: "Create Sales Return Reason", SortOrder: 1110, Active: true},
-	{Code: "update_sales_return_reason", Label: "Update Sales Return Reason", SortOrder: 1120, Active: true},
-	{Code: "delete_sales_return_reason", Label: "Delete Sales Return Reason", SortOrder: 1130, Active: true},
-	{Code: "view_stock", Label: "View Stock", SortOrder: 1200, Active: true},
-	{Code: "view_stock_movement", Label: "View Stock Movement", SortOrder: 1210, Active: true},
-	{Code: "create_stock_in", Label: "Create Stock In", SortOrder: 1220, Active: true},
-	{Code: "create_stock_out", Label: "Create Stock Out", SortOrder: 1230, Active: true},
-	{Code: "view_stock_adjustment", Label: "View Stock Adjustment", SortOrder: 1240, Active: true},
-	{Code: "create_stock_adjustment", Label: "Create Stock Adjustment", SortOrder: 1250, Active: true},
-	{Code: "approve_stock_adjustment", Label: "Approve Stock Adjustment", SortOrder: 1260, Active: true},
-	{Code: "reject_stock_adjustment", Label: "Reject Stock Adjustment", SortOrder: 1270, Active: true},
-	{Code: "view_stock_transaction", Label: "View Stock Transaction", SortOrder: 1280, Active: true},
-	{Code: "view_inventory_cost", Label: "View Inventory Cost", SortOrder: 1290, Active: true},
-	{Code: "view_cashier_shift", Label: "View Cashier Shift", SortOrder: 1300, Active: true},
-	{Code: "open_cashier_shift", Label: "Open Cashier Shift", SortOrder: 1310, Active: true},
-	{Code: "close_cashier_shift", Label: "Close Cashier Shift", SortOrder: 1320, Active: true},
 	{Code: "view_pos_reports", Label: "View POS Reports", SortOrder: 1400, Active: true},
 	{Code: "export_pos_reports", Label: "Export POS Reports", SortOrder: 1410, Active: true},
 	{Code: "view_approval_rule", Label: "View Approval Rule", SortOrder: 1500, Active: true},
@@ -124,7 +97,7 @@ func NewRoleActionMModel(ctx context.Context, db *sqlx.DB) *RoleActionMModel {
 	return &RoleActionMModel{
 		Active: true,
 		MModel: impl.MModel{
-			Context: ctx, Name: "RoleAction", TableName: "role_actions", DB: db,
+			Context: ctx, Name: "RoleAction", TableName: RoleActionTable, DB: db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
 				impl.MField{Type: "string", DbType: "VARCHAR", JsonTag: "value", DbTag: "code", MaxLength: 100, Required: true},
@@ -156,12 +129,13 @@ func (m *RoleActionMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE role_actions ADD COLUMN IF NOT EXISTS code VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE role_actions ADD COLUMN IF NOT EXISTS label VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE role_actions ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`,
-		`ALTER TABLE role_actions ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_role_actions_code ON role_actions (code)`,
-		`CREATE INDEX IF NOT EXISTS idx_role_actions_active ON role_actions (active, sort_order, label)`,
+		`ALTER TABLE ` + RoleActionTable + ` ADD COLUMN IF NOT EXISTS code VARCHAR(100) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + RoleActionTable + ` ADD COLUMN IF NOT EXISTS label VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + RoleActionTable + ` ADD COLUMN IF NOT EXISTS sort_order INTEGER NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + RoleActionTable + ` ADD COLUMN IF NOT EXISTS active BOOLEAN NOT NULL DEFAULT true`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_role_actions_code ON ` + RoleActionTable + ` (code)`,
+		`CREATE INDEX IF NOT EXISTS idx_role_actions_active ON ` + RoleActionTable + ` (active, sort_order, label)`,
+		`UPDATE ` + RoleActionTable + ` SET active = false WHERE code ILIKE '%sales%' OR code ILIKE '%stock%' OR code ILIKE '%purchase%' OR code ILIKE '%cash_drawer%' OR code ILIKE '%cashier_shift%'`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
@@ -199,7 +173,7 @@ func (m *RoleActionMModel) Create() (int64, error) {
 	if err := m.ValidateCreate(); err != nil {
 		return 0, err
 	}
-	query := `INSERT INTO role_actions (code, label, sort_order, active)
+	query := `INSERT INTO ` + RoleActionTable + ` (code, label, sort_order, active)
 		VALUES ($1, $2, $3, $4)
 		ON CONFLICT (code) DO UPDATE SET label = EXCLUDED.label,
 			sort_order = EXCLUDED.sort_order, active = EXCLUDED.active
@@ -254,7 +228,7 @@ func (m *RoleActionMModel) find(search string, activeOnly bool) ([]RoleActionMMo
 	if m.DB == nil {
 		return nil, errors.New("role action metadata database is nil")
 	}
-	query := `SELECT id, code, label, sort_order, active FROM role_actions`
+	query := `SELECT id, code, label, sort_order, active FROM ` + RoleActionTable + ``
 	conditions := make([]string, 0, 2)
 	args := make([]any, 0, 2)
 	if activeOnly {

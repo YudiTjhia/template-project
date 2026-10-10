@@ -3,6 +3,7 @@ import 'package:mobile_app/models/role_model.dart';
 import 'package:mobile_app/services/role_service.dart';
 
 import '../../navigation/app_drawer_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 import 'role_edit_dialog.dart';
 
@@ -83,27 +84,33 @@ class _RolesListPageState extends State<RolesListPage> {
         icon: const Icon(Icons.add_moderator_outlined),
         label: const Text('Tambah Role'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _loadRoles(),
-              decoration: InputDecoration(
-                hintText: 'Cari nama role',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  onPressed: _loadRoles,
-                  icon: const Icon(Icons.arrow_forward),
+      body: ResponsivePageLayout(
+        maxWidth: 1100,
+        compactPadding: 0,
+        mediumPadding: 0,
+        expandedPadding: 0,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _loadRoles(),
+                decoration: InputDecoration(
+                  hintText: 'Cari nama role',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    onPressed: _loadRoles,
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                border: const OutlineInputBorder(),
               ),
             ),
-          ),
-          Expanded(child: _buildContent()),
-        ],
+            Expanded(child: _buildContent()),
+          ],
+        ),
       ),
     );
   }

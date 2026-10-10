@@ -50,7 +50,7 @@ func (m User) Migrate() {
 	}
 }
 
-func (User) TableName() string { return "users" }
+func (User) TableName() string { return mmodels.UserTable }
 
 func (m User) ValidateCreate() error {
 	return m.toUserMModel(m.AccountID).ValidateCreate()

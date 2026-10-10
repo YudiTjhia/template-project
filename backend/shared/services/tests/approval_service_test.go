@@ -54,7 +54,7 @@ func seedApprovalStepRequest(t *testing.T, accountID int64, entityNumber string,
 		VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 		RETURNING id`,
 		accountID,
-		models.ApprovalEntitySupplierInvoice,
+		"TEST_DOCUMENT",
 		time.Now().UnixNano(),
 		entityNumber,
 		1000,
@@ -169,8 +169,8 @@ func TestApprovalServiceSaveRuleSyncsPendingRequestStepsToLatestApprover(t *test
 	requestID := seedApprovalStepRequest(t, auth.AccountID, "REQ-SYNC", models.ApprovalApproverTypeUser, &oldUserID, nil, "")
 	approverName := "new-approver"
 	_, err = service.SaveRule(models.ApprovalRule{
-		EntityType: models.ApprovalEntitySupplierInvoice,
-		RuleName:   "Supplier invoice approval",
+		EntityType: "TEST_DOCUMENT",
+		RuleName:   "Test document approval",
 		Priority:   1,
 		Active:     true,
 		Steps: []models.ApprovalRuleStep{
@@ -216,85 +216,6 @@ func TestApprovalServiceSaveRuleSyncsPendingRequestStepsToLatestApprover(t *test
 	}
 	if items[0].EntityNumber != "REQ-SYNC" {
 		t.Fatalf("unexpected synced request returned: %+v", items[0])
-	}
-}
-
-func TestApprovalServiceSubmitDocumentRejectsWhenNoMatchingRule(t *testing.T) {
-	auth := models.Auth{AccountID: 7, Email: "admin@example.com", UserName: "admin", Name: "Admin"}
-	service, cleanup := newRealApprovalService(t, auth)
-	defer cleanup()
-
-	_, err := service.SubmitDocument(services.ApprovalSubmitInput{
-		EntityType:   models.ApprovalEntityPurchaseRequest,
-		EntityID:     99,
-		EntityNumber: "PR-NO-RULE",
-		Amount:       1000,
-	})
-	if err == nil {
-		t.Fatalf("expected submit document to fail when no approval rule matches")
-	}
-	if err.Error() != "approval rule tidak ditemukan untuk PURCHASE_REQUEST" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestApprovalServiceSaveRuleRequiresAtLeastOneStep(t *testing.T) {
-	auth := models.Auth{AccountID: 7, Email: "admin@example.com", UserName: "admin", Name: "Admin"}
-	service, cleanup := newRealApprovalService(t, auth)
-	defer cleanup()
-
-	_, err := service.SaveRule(models.ApprovalRule{
-		EntityType: models.ApprovalEntityPurchaseRequest,
-		RuleName:   "PR approval without step",
-		Priority:   1,
-		Active:     true,
-	})
-	if err == nil {
-		t.Fatalf("expected save approval rule without step to fail")
-	}
-	if err.Error() != "approval rule harus memiliki minimal 1 approval step" {
-		t.Fatalf("unexpected error: %v", err)
-	}
-}
-
-func TestApprovalServiceSubmitDocumentExplainsMissingCostCenterRule(t *testing.T) {
-	auth := models.Auth{AccountID: 7, Email: "admin@example.com", UserName: "admin", Name: "Admin"}
-	service, cleanup := newRealApprovalService(t, auth)
-	defer cleanup()
-
-	costCenterID := int64(1)
-	_, err := service.SaveRule(models.ApprovalRule{
-		EntityType:   models.ApprovalEntityPurchaseRequest,
-		RuleName:     "PR GS approval",
-		CostCenterID: &costCenterID,
-		Priority:     1,
-		Active:       true,
-		Steps: []models.ApprovalRuleStep{
-			{
-				Level:          1,
-				ApproverType:   models.ApprovalApproverTypeUser,
-				RequiredAction: models.ApprovalRequiredActionAny,
-				Active:         true,
-			},
-		},
-	})
-	if err != nil {
-		t.Fatalf("save approval rule: %v", err)
-	}
-
-	requestCostCenterID := int64(2)
-	_, err = service.SubmitDocument(services.ApprovalSubmitInput{
-		EntityType:   models.ApprovalEntityPurchaseRequest,
-		EntityID:     100,
-		EntityNumber: "PR-NO-COST-CENTER-RULE",
-		Amount:       1000,
-		CostCenterID: &requestCostCenterID,
-	})
-	if err == nil {
-		t.Fatalf("expected submit document to fail when no cost center rule matches")
-	}
-	if err.Error() != "approval rule untuk PURCHASE_REQUEST cost center ID 2 belum ada" {
-		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

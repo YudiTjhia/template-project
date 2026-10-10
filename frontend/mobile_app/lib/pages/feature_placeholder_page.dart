@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../navigation/app_bottom_menu.dart';
 import '../navigation/app_drawer_menu.dart';
 import '../shared/widgets/bottom_menu.dart';
+import '../shared/widgets/responsive_page_layout.dart';
 
 /// Temporary destination used until a menu feature has its own page.
 class FeaturePlaceholderPage extends StatelessWidget {
@@ -22,29 +23,32 @@ class FeaturePlaceholderPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       drawer: const AppDrawerMenu(),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                icon,
-                size: 56,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(height: 16),
-              Text(
-                title,
-                style: Theme.of(context).textTheme.titleLarge,
-                textAlign: TextAlign.center,
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Halaman ini belum tersedia.',
-                textAlign: TextAlign.center,
-              ),
-            ],
+      body: ResponsivePageLayout(
+        maxWidth: 900,
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  size: 56,
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.titleLarge,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Halaman ini belum tersedia.',
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

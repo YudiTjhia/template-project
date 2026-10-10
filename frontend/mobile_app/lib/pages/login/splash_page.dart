@@ -8,6 +8,7 @@ import '../../services/login_service.dart';
 import '../../config/app_config.dart';
 import '../../shared/helpers/session_helper.dart';
 import '../../widgets/splash_component.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 const _splashBackground = Color(0xFFB9E3FF);
 
@@ -74,12 +75,18 @@ class _SplashPageState extends State<SplashPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _splashBackground,
-      body: SplashComponent(
-        appTitle: widget._appTitle,
-        logo: widget.logo,
-        isLoading: isChecking,
-        errorMessage: errorMessage ?? 'Gagal memvalidasi sesi',
-        onRetry: _checkSession,
+      body: ResponsivePageLayout(
+        maxWidth: 520,
+        compactPadding: 0,
+        mediumPadding: 24,
+        expandedPadding: 32,
+        child: SplashComponent(
+          appTitle: widget._appTitle,
+          logo: widget.logo,
+          isLoading: isChecking,
+          errorMessage: errorMessage ?? 'Gagal memvalidasi sesi',
+          onRetry: _checkSession,
+        ),
       ),
     );
   }

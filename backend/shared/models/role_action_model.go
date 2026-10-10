@@ -52,7 +52,7 @@ func (m RoleAction) Migrate() {
 
 func (m RoleAction) MigrateError() error { return m.mmodel().Migrate() }
 
-func (m RoleAction) TableName() string { return "role_actions" }
+func (m RoleAction) TableName() string { return mmodels.RoleActionTable }
 
 func (m RoleAction) ValidateCreate() error { return m.mmodel().ValidateCreate() }
 

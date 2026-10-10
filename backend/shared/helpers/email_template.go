@@ -40,7 +40,7 @@ const fallbackTransactionNotificationTemplate = `<!doctype html>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;max-width:640px;background:#ffffff;border:1px solid #cbd5e1;border-radius:12px;overflow:hidden;">
           <tr><td style="padding:16px 16px 12px;border-bottom:1px solid #e2e8f0;">
             <div style="font-size:20px;line-height:1.25;font-weight:900;">{{.EntityLabel}}</div>
-            <div style="margin-top:2px;font-size:12px;color:#64748b;">Procurement Document Notification</div>
+            <div style="margin-top:2px;font-size:12px;color:#64748b;">Document Notification</div>
             <div style="margin-top:8px;font-size:14px;line-height:1.3;font-weight:900;word-break:break-word;overflow-wrap:anywhere;">{{if .EntityNumber}}{{.EntityNumber}}{{else}}-{{end}}</div>
           </td></tr>
           <tr><td style="padding:14px 16px 6px;">

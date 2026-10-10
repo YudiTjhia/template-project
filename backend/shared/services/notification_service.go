@@ -184,7 +184,7 @@ func (s *NotificationService) findAuthRecipients() ([]notificationRecipient, err
 		Email string `db:"email"`
 		Name  string `db:"name"`
 	}
-	err := s.DB.Select(&rows, `SELECT email, name FROM auths WHERE account_id = $1 AND is_expired = false ORDER BY id ASC`, s.Auth.AccountID)
+	err := s.DB.Select(&rows, `SELECT email, name FROM `+mmodels.AuthTable+` WHERE account_id = $1 AND is_expired = false ORDER BY id ASC`, s.Auth.AccountID)
 	if err != nil {
 		return nil, err
 	}
@@ -302,18 +302,6 @@ func normalizeNotificationEvent(event NotificationEvent) NotificationEvent {
 
 func notificationEntityLabel(entityType string) string {
 	switch strings.ToUpper(strings.TrimSpace(entityType)) {
-	case models.ApprovalEntityPurchaseRequest:
-		return "Purchase Request"
-	case models.ApprovalEntityPurchaseOrder:
-		return "Purchase Order"
-	case models.ApprovalEntityRequestForQuotation:
-		return "Request for Quotation"
-	case models.ApprovalEntityGoodsReceive:
-		return "Goods Receive"
-	case models.ApprovalEntitySupplierInvoice:
-		return "Supplier Invoice"
-	case models.ApprovalEntityPayment:
-		return "Payment"
 	case models.ApprovalEntityBudgetControl:
 		return "Budget Control"
 	case models.ApprovalEntityBudgetAdjustment:
@@ -380,18 +368,6 @@ func notificationSystemURL(entityType string) string {
 
 func notificationDocumentPath(entityType string) string {
 	switch strings.ToUpper(strings.TrimSpace(entityType)) {
-	case models.ApprovalEntityPurchaseRequest:
-		return "purchase-requests"
-	case models.ApprovalEntityPurchaseOrder:
-		return "purchase-orders"
-	case models.ApprovalEntityRequestForQuotation:
-		return "request-for-quotations"
-	case models.ApprovalEntityGoodsReceive:
-		return "goods-receives"
-	case models.ApprovalEntitySupplierInvoice:
-		return "supplier-invoices"
-	case models.ApprovalEntityPayment:
-		return "payments"
 	case models.ApprovalEntityBudgetControl, models.ApprovalEntityBudgetAdjustment:
 		return "budget-controls"
 	default:

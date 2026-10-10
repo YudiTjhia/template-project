@@ -41,7 +41,7 @@ type NotificationMModel struct {
 func NewNotificationMModel(ctx context.Context, db *sqlx.DB) *NotificationMModel {
 	return &NotificationMModel{
 		MModel: impl.MModel{
-			Context: ctx, Name: "Notification", TableName: "notifications", DB: db,
+			Context: ctx, Name: "Notification", TableName: NotificationTable, DB: db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
 				impl.MField{Type: "int64", DbType: "BIGINT", JsonTag: "accountId", DbTag: "account_id", Required: true, IsNotUpdateField: true},
@@ -84,24 +84,24 @@ func (m *NotificationMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_user_id BIGINT`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS title VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_type VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS entity_number VARCHAR(100) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS action VARCHAR(50) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
-		`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_account_recipient ON notifications (account_id, recipient_user_id, is_read, created_at DESC)`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_account_email ON notifications (account_id, LOWER(recipient_email), is_read, created_at DESC)`,
-		`CREATE INDEX IF NOT EXISTS idx_notifications_entity ON notifications (account_id, entity_type, entity_id)`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS recipient_user_id BIGINT`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS recipient_email VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS title VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS message TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS entity_type VARCHAR(100) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS entity_id BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS entity_number VARCHAR(100) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS action VARCHAR(50) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS is_read BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS read_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + NotificationTable + ` ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_account_recipient ON ` + NotificationTable + ` (account_id, recipient_user_id, is_read, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_account_email ON ` + NotificationTable + ` (account_id, LOWER(recipient_email), is_read, created_at DESC)`,
+		`CREATE INDEX IF NOT EXISTS idx_notifications_entity ON ` + NotificationTable + ` (account_id, entity_type, entity_id)`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(ctx, statement); err != nil {
@@ -178,7 +178,7 @@ func (m *NotificationMModel) FindList(recipientUserID int64, recipientEmail, sea
 	if limit <= 0 || limit > 100 {
 		limit = 20
 	}
-	query := `SELECT id, account_id, recipient_user_id, recipient_email, title, message, entity_type, entity_id, entity_number, action, is_read, read_at, created_at, created_by, updated_at, updated_by FROM notifications WHERE account_id = $1`
+	query := `SELECT id, account_id, recipient_user_id, recipient_email, title, message, entity_type, entity_id, entity_number, action, is_read, read_at, created_at, created_by, updated_at, updated_by FROM ` + NotificationTable + ` WHERE account_id = $1`
 	args := []any{accountID}
 	if recipientUserID > 0 {
 		args = append(args, recipientUserID)
@@ -214,7 +214,7 @@ func (m *NotificationMModel) CountUnread(recipientUserID int64, recipientEmail s
 	if err != nil {
 		return 0, err
 	}
-	query := `SELECT COUNT(*) FROM notifications WHERE account_id = $1 AND is_read = false`
+	query := `SELECT COUNT(*) FROM ` + NotificationTable + ` WHERE account_id = $1 AND is_read = false`
 	args := []any{accountID}
 	if recipientUserID > 0 {
 		args = append(args, recipientUserID)
@@ -248,7 +248,7 @@ func (m *NotificationMModel) MarkRead(id int64) error {
 	}
 	updatedBy := firstNonBlank(m.AuthEmail, m.AuthUserName)
 	_, err = m.DB.ExecContext(m.ContextOrBackground(), `
-		UPDATE notifications SET is_read = true, read_at = NOW(), updated_at = NOW(), updated_by = NULLIF($1, '')
+		UPDATE `+NotificationTable+` SET is_read = true, read_at = NOW(), updated_at = NOW(), updated_by = NULLIF($1, '')
 		WHERE id = $2 AND account_id = $3`, updatedBy, id, accountID)
 	return err
 }

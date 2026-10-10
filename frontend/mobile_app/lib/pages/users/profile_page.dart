@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../shared/theme/app_theme.dart';
 import '../../shared/widgets/msg_box.dart';
 import '../../navigation/app_drawer_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 import 'package:mobile_app/models/profile_model.dart';
 import 'package:mobile_app/services/profile_service.dart';
@@ -162,9 +163,11 @@ class _ProfilePageState extends State<ProfilePage> {
       drawer: widget.enableDrawer
           ? AppDrawerMenu(selectedRoute: widget.selectedRoute)
           : null,
-      body: SafeArea(
+      body: ResponsivePageLayout(
+        maxWidth: 720,
+        safeArea: true,
         child: ListView(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.symmetric(vertical: 20),
           children: [_buildProfileCard()],
         ),
       ),

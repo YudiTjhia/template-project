@@ -34,7 +34,7 @@ type AuthMModel struct {
 
 func NewAuthMModel(ctx context.Context, db *sqlx.DB) *AuthMModel {
 	return &AuthMModel{MModel: impl.MModel{
-		Context: ctx, Name: "Auth", TableName: "auths", DB: db,
+		Context: ctx, Name: "Auth", TableName: AuthTable, DB: db,
 		Fields: []interfaces.IMField{
 			impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
 			impl.MField{Type: "int64", DbType: "BIGINT", JsonTag: "account_id", DbTag: "account_id", Default: "0", Required: true},
@@ -70,19 +70,19 @@ func (m *AuthMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS token TEXT NOT NULL DEFAULT ''`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS token_expired TIMESTAMPTZ`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS is_expired BOOLEAN NOT NULL DEFAULT false`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT ''`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-		`ALTER TABLE auths ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS email VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS name VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS token TEXT NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS token_expired TIMESTAMPTZ`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS is_expired BOOLEAN NOT NULL DEFAULT false`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+		`ALTER TABLE ` + AuthTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
 		`DROP INDEX IF EXISTS idx_auths_account_email`,
-		`CREATE INDEX IF NOT EXISTS idx_auths_account_email ON auths (account_id, LOWER(email))`,
-		`UPDATE auths
+		`CREATE INDEX IF NOT EXISTS idx_auths_account_email ON ` + AuthTable + ` (account_id, LOWER(email))`,
+		`UPDATE ` + AuthTable + `
 		 SET is_expired = true,
 		     token_expired = COALESCE(token_expired, NOW()),
 		     updated_at = NOW()
@@ -90,15 +90,15 @@ func (m *AuthMModel) Migrate() error {
 			SELECT a.id FROM (
 				SELECT a.id,
 					ROW_NUMBER() OVER (PARTITION BY a.account_id, LOWER(a.email) ORDER BY a.id DESC) AS session_rank
-				FROM auths a
-				JOIN users u ON u.account_id = a.account_id AND LOWER(u.user_email) = LOWER(a.email)
+				FROM ` + AuthTable + ` a
+				JOIN ` + UserTable + ` u ON u.account_id = a.account_id AND LOWER(u.user_email) = LOWER(a.email)
 				WHERE a.is_expired = false
 				  AND COALESCE(NULLIF(LOWER(TRIM(u.login_type)), ''), 'cashier') = 'cashier'
 			) a WHERE a.session_rank > 1
 		 )`,
 		`DROP INDEX IF EXISTS idx_auths_account_email_active`,
-		`CREATE INDEX IF NOT EXISTS idx_auths_account_id ON auths (account_id)`,
-		`CREATE INDEX IF NOT EXISTS idx_auths_token ON auths (token)`,
+		`CREATE INDEX IF NOT EXISTS idx_auths_account_id ON ` + AuthTable + ` (account_id)`,
+		`CREATE INDEX IF NOT EXISTS idx_auths_token ON ` + AuthTable + ` (token)`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(m.ContextOrBackground(), statement); err != nil {
@@ -188,7 +188,7 @@ func (m *AuthMModel) FindByEmail() (*AuthMModel, error) {
 	}
 	found := &AuthMModel{MModel: m.MModel}
 	query := `SELECT id, account_id, email, name, token, token_expired, is_expired, otp, otp_expired, created_at, updated_at
-		FROM auths WHERE account_id = $1 AND LOWER(email) = LOWER($2)
+		FROM ` + AuthTable + ` WHERE account_id = $1 AND LOWER(email) = LOWER($2)
 		ORDER BY is_expired ASC, id DESC LIMIT 1`
 	if err := m.DB.GetContext(m.ContextOrBackground(), found, query, m.AccountID, m.Email); err != nil {
 		return nil, err
@@ -229,7 +229,7 @@ func (m *AuthMModel) FindReusableSession() (*AuthMModel, error) {
 	found := &AuthMModel{MModel: m.MModel}
 	err := m.DB.GetContext(m.ContextOrBackground(), found, `
 		SELECT id, account_id, email, name, token, token_expired, is_expired, otp, otp_expired, created_at, updated_at
-		FROM auths
+		FROM `+AuthTable+`
 		WHERE account_id = $1 AND LOWER(email) = LOWER($2)
 			AND is_expired = false
 			AND (token_expired IS NULL OR token_expired > NOW())
@@ -248,13 +248,13 @@ func (m *AuthMModel) CreateSessionTx(tx *sqlx.Tx, expirePrevious bool) error {
 	ctx := m.ContextOrBackground()
 	if expirePrevious {
 		if _, err := tx.ExecContext(ctx, `
-			UPDATE auths SET is_expired = true, token_expired = NOW(), updated_at = NOW()
+			UPDATE `+AuthTable+` SET is_expired = true, token_expired = NOW(), updated_at = NOW()
 			WHERE account_id = $1 AND LOWER(email) = LOWER($2) AND is_expired = false`, m.AccountID, m.Email); err != nil {
 			return err
 		}
 	}
 	_, err := tx.ExecContext(ctx, `
-		INSERT INTO auths (account_id, email, name, token, token_expired, is_expired, otp, otp_expired)
+		INSERT INTO `+AuthTable+` (account_id, email, name, token, token_expired, is_expired, otp, otp_expired)
 		VALUES ($1, $2, $3, $4, $5, false, '', NULL)`,
 		m.AccountID, m.Email, m.Name, m.Token, m.TokenExpired)
 	return err
@@ -275,7 +275,7 @@ func (m *AuthMModel) ExpireActiveByEmail() error {
 		return errors.New("email wajib diisi")
 	}
 	_, err := m.DB.ExecContext(m.ContextOrBackground(), `
-		UPDATE auths SET is_expired = true, token_expired = NOW(), updated_at = NOW()
+		UPDATE `+AuthTable+` SET is_expired = true, token_expired = NOW(), updated_at = NOW()
 		WHERE account_id = $1 AND LOWER(email) = LOWER($2) AND is_expired = false`, m.AccountID, m.Email)
 	return err
 }
@@ -285,7 +285,7 @@ func (m *AuthMModel) ExpireByToken() error {
 		return err
 	}
 	result, err := m.DB.ExecContext(m.ContextOrBackground(), `
-		UPDATE auths SET is_expired = true, token_expired = NOW(), updated_at = NOW()
+		UPDATE `+AuthTable+` SET is_expired = true, token_expired = NOW(), updated_at = NOW()
 		WHERE token = $1`, m.Token)
 	return requireAuthRowsAffected(result, err)
 }
@@ -295,7 +295,7 @@ func (m *AuthMModel) ExtendByToken(expiredAt time.Time) error {
 		return err
 	}
 	result, err := m.DB.ExecContext(m.ContextOrBackground(), `
-		UPDATE auths SET is_expired = false, token_expired = $2, updated_at = NOW()
+		UPDATE `+AuthTable+` SET is_expired = false, token_expired = $2, updated_at = NOW()
 		WHERE token = $1`, m.Token, expiredAt)
 	return requireAuthRowsAffected(result, err)
 }

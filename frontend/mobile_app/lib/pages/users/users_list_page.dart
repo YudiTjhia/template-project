@@ -4,6 +4,7 @@ import 'package:mobile_app/models/user_model.dart';
 import 'package:mobile_app/services/user_service.dart';
 
 import '../../navigation/app_drawer_menu.dart';
+import '../../shared/widgets/responsive_page_layout.dart';
 
 import 'user_edit_page.dart';
 
@@ -78,28 +79,34 @@ class _UsersListPageState extends State<UsersListPage> {
         icon: const Icon(Icons.person_add_alt_1),
         label: const Text('Tambah User'),
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
-            child: TextField(
-              controller: _searchController,
-              textInputAction: TextInputAction.search,
-              onSubmitted: (_) => _loadUsers(),
-              decoration: InputDecoration(
-                hintText: 'Cari nama, email, atau nomor telepon',
-                prefixIcon: const Icon(Icons.search),
-                suffixIcon: IconButton(
-                  tooltip: 'Cari',
-                  onPressed: _loadUsers,
-                  icon: const Icon(Icons.arrow_forward),
+      body: ResponsivePageLayout(
+        maxWidth: 1100,
+        compactPadding: 0,
+        mediumPadding: 0,
+        expandedPadding: 0,
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
+              child: TextField(
+                controller: _searchController,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _loadUsers(),
+                decoration: InputDecoration(
+                  hintText: 'Cari nama, email, atau nomor telepon',
+                  prefixIcon: const Icon(Icons.search),
+                  suffixIcon: IconButton(
+                    tooltip: 'Cari',
+                    onPressed: _loadUsers,
+                    icon: const Icon(Icons.arrow_forward),
+                  ),
+                  border: const OutlineInputBorder(),
                 ),
-                border: const OutlineInputBorder(),
               ),
             ),
-          ),
-          Expanded(child: _buildContent()),
-        ],
+            Expanded(child: _buildContent()),
+          ],
+        ),
       ),
     );
   }

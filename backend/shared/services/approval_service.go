@@ -1,6 +1,7 @@
 package services
 
 import (
+	"backend/shared/mmodels"
 	"context"
 	"errors"
 	"fmt"
@@ -103,7 +104,7 @@ func (s *ApprovalService) createRule(rule models.ApprovalRule) (int64, error) {
 
 	var id int64
 	err = tx.QueryRow(
-		`INSERT INTO approval_rules
+		`INSERT INTO `+mmodels.ApprovalRuleTable+`
 		(account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_by)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
 		RETURNING id`,
@@ -163,7 +164,7 @@ func (s *ApprovalService) updateRule(rule models.ApprovalRule) error {
 	}
 
 	_, err = tx.Exec(
-		`UPDATE approval_rules
+		`UPDATE `+mmodels.ApprovalRuleTable+`
 		SET entity_type = $1,
 			rule_name = $2,
 			department_id = $3,
@@ -206,13 +207,13 @@ func (s *ApprovalService) updateRule(rule models.ApprovalRule) error {
 }
 
 func (s *ApprovalService) DeleteRule(id int64) error {
-	_, err := s.DB.Exec(`DELETE FROM approval_rules WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID)
+	_, err := s.DB.Exec(`DELETE FROM `+mmodels.ApprovalRuleTable+` WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID)
 	return err
 }
 
 func (s *ApprovalService) FindRuleByID(id int64) (*models.ApprovalRule, error) {
 	var rule models.ApprovalRule
-	if err := s.DB.Get(&rule, `SELECT id, account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_at, created_by, updated_at, updated_by FROM approval_rules WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID); err != nil {
+	if err := s.DB.Get(&rule, `SELECT id, account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_at, created_by, updated_at, updated_by FROM `+mmodels.ApprovalRuleTable+` WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID); err != nil {
 		return nil, err
 	}
 	steps, err := s.FindRuleStepsByRuleID(id)
@@ -231,8 +232,8 @@ func (s *ApprovalService) FindRuleStepsByRuleID(ruleID int64) ([]models.Approval
 				ELSE ars.approver_name
 			END AS approver_name,
 			ars.approver_role_id, ars.approver_role, ars.required_action, ars.active, ars.created_at, ars.created_by, ars.updated_at, ars.updated_by
-		FROM approval_rule_steps ars
-		LEFT JOIN users u ON u.account_id = ars.account_id AND u.id = ars.approver_user_id
+		FROM `+mmodels.ApprovalRuleStepTable+` ars
+		LEFT JOIN `+mmodels.UserTable+` u ON u.account_id = ars.account_id AND u.id = ars.approver_user_id
 		WHERE ars.approval_rule_id = $1 AND ars.account_id = $2
 		ORDER BY ars.level ASC, ars.id ASC`, ruleID, s.Auth.AccountID)
 	return steps, err
@@ -240,7 +241,7 @@ func (s *ApprovalService) FindRuleStepsByRuleID(ruleID int64) ([]models.Approval
 
 func (s *ApprovalService) FindRules(search string) ([]models.ApprovalRule, error) {
 	sql := `SELECT id, account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_at, created_by, updated_at, updated_by
-		FROM approval_rules WHERE account_id = $1`
+		FROM ` + mmodels.ApprovalRuleTable + ` WHERE account_id = $1`
 	args := []interface{}{s.Auth.AccountID}
 	if strings.TrimSpace(search) != "" {
 		args = append(args, search)
@@ -256,7 +257,7 @@ func (s *ApprovalService) FindRules(search string) ([]models.ApprovalRule, error
 func (s *ApprovalService) FindAllRules() ([]models.ApprovalRule, error) {
 	var items []models.ApprovalRule
 	err := s.DB.Select(&items, `SELECT id, account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_at, created_by, updated_at, updated_by
-		FROM approval_rules WHERE account_id = $1 ORDER BY priority ASC, id DESC LIMIT 10`, s.Auth.AccountID)
+		FROM `+mmodels.ApprovalRuleTable+` WHERE account_id = $1 ORDER BY priority ASC, id DESC LIMIT 10`, s.Auth.AccountID)
 	return items, err
 }
 
@@ -266,12 +267,12 @@ func (s *ApprovalService) pendingApprovalRequestFilter(search string) (string, [
 		return "", nil, err
 	}
 
-	sql := ` FROM approval_requests ar
+	sql := ` FROM ` + mmodels.ApprovalRequestTable + ` ar
 		WHERE ar.account_id = $1
 		  AND ar.status = $2
 		  AND EXISTS (
 			SELECT 1
-			FROM approval_request_steps aqs
+			FROM ` + mmodels.ApprovalRequestStepTable + ` aqs
 			WHERE aqs.account_id = ar.account_id
 			  AND aqs.approval_request_id = ar.id
 			  AND aqs.status = $3
@@ -333,7 +334,7 @@ func (s *ApprovalService) CountPendingRequests(search string) (int64, error) {
 func (s *ApprovalService) FindRequestByID(id int64) (*models.ApprovalRequest, error) {
 	var req models.ApprovalRequest
 	if err := s.DB.Get(&req, `SELECT id, account_id, entity_type, entity_id, entity_number, department_id, cost_center_id, amount, status, current_level, submitted_at, approved_at, rejected_at, rejection_note, created_at, created_by, updated_at, updated_by
-		FROM approval_requests WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID); err != nil {
+		FROM `+mmodels.ApprovalRequestTable+` WHERE id = $1 AND account_id = $2`, id, s.Auth.AccountID); err != nil {
 		return nil, err
 	}
 	steps, err := s.FindRequestStepsByRequestID(id)
@@ -352,8 +353,8 @@ func (s *ApprovalService) FindRequestStepsByRequestID(requestID int64) ([]models
 				ELSE aqs.approver_name
 			END AS approver_name,
 			aqs.approver_role_id, aqs.approver_role, aqs.required_action, aqs.status, aqs.action_by, aqs.action_at, aqs.notes, aqs.created_at, aqs.created_by, aqs.updated_at, aqs.updated_by
-		FROM approval_request_steps aqs
-		LEFT JOIN users u ON u.account_id = aqs.account_id AND u.id = aqs.approver_user_id
+		FROM `+mmodels.ApprovalRequestStepTable+` aqs
+		LEFT JOIN `+mmodels.UserTable+` u ON u.account_id = aqs.account_id AND u.id = aqs.approver_user_id
 		WHERE aqs.approval_request_id = $1 AND aqs.account_id = $2
 		ORDER BY aqs.level ASC, aqs.id ASC`, requestID, s.Auth.AccountID)
 	return steps, err
@@ -401,7 +402,7 @@ func (s *ApprovalService) SubmitDocument(input ApprovalSubmitInput) (*models.App
 
 	var approvalID int64
 	if err = tx.QueryRow(
-		`INSERT INTO approval_requests
+		`INSERT INTO `+mmodels.ApprovalRequestTable+`
 		(account_id, entity_type, entity_id, entity_number, department_id, cost_center_id, amount, status, current_level, submitted_at, created_by)
 		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,NOW(),$10)
 		RETURNING id`,
@@ -427,7 +428,7 @@ func (s *ApprovalService) SubmitDocument(input ApprovalSubmitInput) (*models.App
 	if status == models.ApprovalRequestStatusApproved {
 		targetStatus = models.ApprovalRequestStatusApproved
 		now := time.Now().UTC()
-		if _, err = tx.Exec(`UPDATE approval_requests SET approved_at = $1, current_level = 0, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`, now, createdBy, approvalID, s.Auth.AccountID); err != nil {
+		if _, err = tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET approved_at = $1, current_level = 0, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`, now, createdBy, approvalID, s.Auth.AccountID); err != nil {
 			return nil, err
 		}
 	}
@@ -497,7 +498,7 @@ func (s *ApprovalService) applyAction(input ApprovalActionInput, action string) 
 	}
 
 	if _, err = tx.Exec(
-		`UPDATE approval_request_steps
+		`UPDATE `+mmodels.ApprovalRequestStepTable+`
 		SET status = $1, action_by = $2, action_at = $3, notes = $4, updated_at = NOW(), updated_by = $2
 		WHERE id = $5 AND account_id = $6`,
 		action,
@@ -514,14 +515,14 @@ func (s *ApprovalService) applyAction(input ApprovalActionInput, action string) 
 	switch action {
 	case models.ApprovalStepStatusRejected:
 		finalApprovalStatus = models.ApprovalRequestStatusRejected
-		_, err = tx.Exec(`UPDATE approval_requests SET status = $1, rejected_at = $2, rejection_note = $3, updated_at = NOW(), updated_by = $4 WHERE id = $5 AND account_id = $6`,
+		_, err = tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET status = $1, rejected_at = $2, rejection_note = $3, updated_at = NOW(), updated_by = $4 WHERE id = $5 AND account_id = $6`,
 			models.ApprovalRequestStatusRejected, now, strings.TrimSpace(input.Notes), actor, request.ID, s.Auth.AccountID)
 		if err != nil {
 			return err
 		}
 	case models.ApprovalStepStatusRevision:
 		finalApprovalStatus = models.ApprovalRequestStatusRevision
-		_, err = tx.Exec(`UPDATE approval_requests SET status = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`,
+		_, err = tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET status = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`,
 			models.ApprovalRequestStatusRevision, actor, request.ID, s.Auth.AccountID)
 		if err != nil {
 			return err
@@ -533,14 +534,14 @@ func (s *ApprovalService) applyAction(input ApprovalActionInput, action string) 
 		}
 		if nextPending == nil {
 			finalApprovalStatus = models.ApprovalRequestStatusApproved
-			_, err = tx.Exec(`UPDATE approval_requests SET status = $1, approved_at = $2, current_level = $3, updated_at = NOW(), updated_by = $4 WHERE id = $5 AND account_id = $6`,
+			_, err = tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET status = $1, approved_at = $2, current_level = $3, updated_at = NOW(), updated_by = $4 WHERE id = $5 AND account_id = $6`,
 				models.ApprovalRequestStatusApproved, now, step.Level, actor, request.ID, s.Auth.AccountID)
 			if err != nil {
 				return err
 			}
 		} else {
 			finalApprovalStatus = models.ApprovalRequestStatusPending
-			_, err = tx.Exec(`UPDATE approval_requests SET status = $1, current_level = $2, updated_at = NOW(), updated_by = $3 WHERE id = $4 AND account_id = $5`,
+			_, err = tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET status = $1, current_level = $2, updated_at = NOW(), updated_by = $3 WHERE id = $4 AND account_id = $5`,
 				models.ApprovalRequestStatusPending, nextPending.Level, actor, request.ID, s.Auth.AccountID)
 			if err != nil {
 				return err
@@ -571,7 +572,7 @@ func (s *ApprovalService) findBestRule(input ApprovalSubmitInput) (*models.Appro
 	var rule models.ApprovalRule
 	err := s.DB.Get(&rule, `
 		SELECT id, account_id, entity_type, rule_name, department_id, cost_center_id, min_amount, max_amount, priority, active, created_at, created_by, updated_at, updated_by
-		FROM approval_rules
+		FROM `+mmodels.ApprovalRuleTable+`
 		WHERE account_id = $1
 		  AND active = true
 		  AND entity_type = $2
@@ -606,7 +607,7 @@ func (s *ApprovalService) approvalRuleMissingError(input ApprovalSubmitInput) er
 	var entityRuleCount int
 	if err := s.DB.Get(&entityRuleCount, `
 		SELECT COUNT(*)
-		FROM approval_rules
+		FROM `+mmodels.ApprovalRuleTable+`
 		WHERE account_id = $1
 		  AND active = true
 		  AND entity_type = $2`,
@@ -623,7 +624,7 @@ func (s *ApprovalService) approvalRuleMissingError(input ApprovalSubmitInput) er
 		var departmentRuleCount int
 		if err := s.DB.Get(&departmentRuleCount, `
 			SELECT COUNT(*)
-			FROM approval_rules
+			FROM `+mmodels.ApprovalRuleTable+`
 			WHERE account_id = $1
 			  AND active = true
 			  AND entity_type = $2
@@ -643,7 +644,7 @@ func (s *ApprovalService) approvalRuleMissingError(input ApprovalSubmitInput) er
 		var costCenterRuleCount int
 		if err := s.DB.Get(&costCenterRuleCount, `
 			SELECT COUNT(*)
-			FROM approval_rules
+			FROM `+mmodels.ApprovalRuleTable+`
 			WHERE account_id = $1
 			  AND active = true
 			  AND entity_type = $2
@@ -668,7 +669,7 @@ func (s *ApprovalService) replaceRuleStepsTx(tx *sqlx.Tx, ruleID int64, steps []
 	if len(steps) == 0 {
 		return errors.New("approval rule harus memiliki minimal 1 approval step")
 	}
-	if _, err := tx.Exec(`DELETE FROM approval_rule_steps WHERE approval_rule_id = $1 AND account_id = $2`, ruleID, s.Auth.AccountID); err != nil {
+	if _, err := tx.Exec(`DELETE FROM `+mmodels.ApprovalRuleStepTable+` WHERE approval_rule_id = $1 AND account_id = $2`, ruleID, s.Auth.AccountID); err != nil {
 		return err
 	}
 	for idx := range steps {
@@ -686,7 +687,7 @@ func (s *ApprovalService) replaceRuleStepsTx(tx *sqlx.Tx, ruleID int64, steps []
 			return err
 		}
 		if _, err := tx.Exec(
-			`INSERT INTO approval_rule_steps
+			`INSERT INTO `+mmodels.ApprovalRuleStepTable+`
 			(account_id, approval_rule_id, level, approver_type, approver_user_id, approver_name, approver_role_id, approver_role, required_action, active, created_by)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 			s.Auth.AccountID,
@@ -714,7 +715,7 @@ func (s *ApprovalService) insertRequestStepsTx(tx *sqlx.Tx, requestID int64, ste
 	for idx := range steps {
 		step := steps[idx]
 		if _, err := tx.Exec(
-			`INSERT INTO approval_request_steps
+			`INSERT INTO `+mmodels.ApprovalRequestStepTable+`
 			(account_id, approval_request_id, level, approver_type, approver_user_id, approver_name, approver_role_id, approver_role, required_action, status, created_by)
 			VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)`,
 			s.Auth.AccountID,
@@ -743,7 +744,7 @@ func (s *ApprovalService) syncPendingRequestsForRuleTx(tx *sqlx.Tx, rule models.
 	var requestIDs []int64
 	err := tx.Select(&requestIDs, `
 		SELECT ar.id
-		FROM approval_requests ar
+		FROM `+mmodels.ApprovalRequestTable+` ar
 		WHERE ar.account_id = $1
 		  AND ar.status = $2
 		  AND ar.entity_type = $3
@@ -753,7 +754,7 @@ func (s *ApprovalService) syncPendingRequestsForRuleTx(tx *sqlx.Tx, rule models.
 		  AND ($7::NUMERIC = 0 OR ar.amount <= $7)
 		  AND NOT EXISTS (
 			SELECT 1
-			FROM approval_request_steps aqs
+			FROM `+mmodels.ApprovalRequestStepTable+` aqs
 			WHERE aqs.account_id = ar.account_id
 			  AND aqs.approval_request_id = ar.id
 			  AND aqs.status <> $8
@@ -772,13 +773,13 @@ func (s *ApprovalService) syncPendingRequestsForRuleTx(tx *sqlx.Tx, rule models.
 	}
 
 	for _, requestID := range requestIDs {
-		if _, err := tx.Exec(`DELETE FROM approval_request_steps WHERE account_id = $1 AND approval_request_id = $2`, s.Auth.AccountID, requestID); err != nil {
+		if _, err := tx.Exec(`DELETE FROM `+mmodels.ApprovalRequestStepTable+` WHERE account_id = $1 AND approval_request_id = $2`, s.Auth.AccountID, requestID); err != nil {
 			return err
 		}
 		if err := s.insertRequestStepsTx(tx, requestID, rule.Steps, updatedBy); err != nil {
 			return err
 		}
-		if _, err := tx.Exec(`UPDATE approval_requests SET current_level = 0, updated_at = NOW(), updated_by = $1 WHERE id = $2 AND account_id = $3`, updatedBy, requestID, s.Auth.AccountID); err != nil {
+		if _, err := tx.Exec(`UPDATE `+mmodels.ApprovalRequestTable+` SET current_level = 0, updated_at = NOW(), updated_by = $1 WHERE id = $2 AND account_id = $3`, updatedBy, requestID, s.Auth.AccountID); err != nil {
 			return err
 		}
 	}
@@ -788,7 +789,7 @@ func (s *ApprovalService) syncPendingRequestsForRuleTx(tx *sqlx.Tx, rule models.
 func (s *ApprovalService) getRequestTx(tx *sqlx.Tx, requestID int64) (*models.ApprovalRequest, error) {
 	var req models.ApprovalRequest
 	if err := tx.Get(&req, `SELECT id, account_id, entity_type, entity_id, entity_number, department_id, cost_center_id, amount, status, current_level, submitted_at, approved_at, rejected_at, rejection_note, created_at, created_by, updated_at, updated_by
-		FROM approval_requests WHERE id = $1 AND account_id = $2`, requestID, s.Auth.AccountID); err != nil {
+		FROM `+mmodels.ApprovalRequestTable+` WHERE id = $1 AND account_id = $2`, requestID, s.Auth.AccountID); err != nil {
 		return nil, err
 	}
 	return &req, nil
@@ -797,7 +798,7 @@ func (s *ApprovalService) getRequestTx(tx *sqlx.Tx, requestID int64) (*models.Ap
 func (s *ApprovalService) findPendingStepTx(tx *sqlx.Tx, requestID int64) (*models.ApprovalRequestStep, error) {
 	var step models.ApprovalRequestStep
 	err := tx.Get(&step, `SELECT id, account_id, approval_request_id, level, approver_type, approver_user_id, approver_name, approver_role_id, approver_role, required_action, status, action_by, action_at, notes, created_at, created_by, updated_at, updated_by
-		FROM approval_request_steps
+		FROM `+mmodels.ApprovalRequestStepTable+`
 		WHERE approval_request_id = $1 AND account_id = $2 AND status = $3
 		ORDER BY level ASC, id ASC
 		LIMIT 1`, requestID, s.Auth.AccountID, models.ApprovalStepStatusPending)
@@ -822,7 +823,7 @@ func (s *ApprovalService) isStepAssignableToCurrentUser(tx *sqlx.Tx, requestID i
 
 	var matched models.ApprovalRequestStep
 	err = tx.Get(&matched, `SELECT id, account_id, approval_request_id, level, approver_type, approver_user_id, approver_name, approver_role_id, approver_role, required_action, status, action_by, action_at, notes, created_at, created_by, updated_at, updated_by
-		FROM approval_request_steps
+		FROM `+mmodels.ApprovalRequestStepTable+`
 		WHERE approval_request_id = $1
 		  AND account_id = $2
 		  AND id = $3
@@ -880,7 +881,7 @@ func (s *ApprovalService) resolveApproverContext() (*approverContext, error) {
 		ID       int64  `db:"id"`
 		RoleName string `db:"role_name"`
 	}
-	if err := s.DB.Select(&roleRows, `SELECT id, role_name FROM roles WHERE account_id = $1 AND LOWER(role_name) = ANY($2::TEXT[])`, s.Auth.AccountID, pq.Array(roleNames)); err != nil {
+	if err := s.DB.Select(&roleRows, `SELECT id, role_name FROM `+mmodels.RoleTable+` WHERE account_id = $1 AND LOWER(role_name) = ANY($2::TEXT[])`, s.Auth.AccountID, pq.Array(roleNames)); err != nil {
 		return nil, err
 	}
 
@@ -920,7 +921,7 @@ func (s *ApprovalService) resolveCurrentUser() (*models.User, error) {
 func (s *ApprovalService) findNextPendingStepTx(tx *sqlx.Tx, requestID int64, currentLevel int) (*models.ApprovalRequestStep, error) {
 	var step models.ApprovalRequestStep
 	err := tx.Get(&step, `SELECT id, account_id, approval_request_id, level, approver_type, approver_user_id, approver_name, approver_role_id, approver_role, required_action, status, action_by, action_at, notes, created_at, created_by, updated_at, updated_by
-		FROM approval_request_steps
+		FROM `+mmodels.ApprovalRequestStepTable+`
 		WHERE approval_request_id = $1 AND account_id = $2 AND status = $3 AND level > $4
 		ORDER BY level ASC, id ASC
 		LIMIT 1`, requestID, s.Auth.AccountID, models.ApprovalStepStatusPending, currentLevel)
@@ -936,236 +937,23 @@ func (s *ApprovalService) findNextPendingStepTx(tx *sqlx.Tx, requestID int64, cu
 func (s *ApprovalService) syncDocumentStatus(entityType string, entityID int64, fromStatus string, approvalStatus string, actor string) error {
 	_ = fromStatus
 	entityType = strings.ToUpper(strings.TrimSpace(entityType))
-	switch entityType {
-	case models.ApprovalEntityPurchaseRequest:
-		status := map[string]string{
-			models.ApprovalRequestStatusApproved: "Approved",
-			models.ApprovalRequestStatusRejected: "Rejected",
-			models.ApprovalRequestStatusRevision: "Revision",
-			models.ApprovalRequestStatusPending:  "WaitingApproval",
-		}[approvalStatus]
-		if status == "" {
-			status = approvalStatus
-		}
-		_, err := s.transactionDB().Exec(`UPDATE purchase_requests SET status = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`,
-			status, actor, entityID, s.Auth.AccountID)
-		return err
-	case models.ApprovalEntityPurchaseOrder:
-		status := map[string]string{
-			models.ApprovalRequestStatusApproved: "Approved",
-			models.ApprovalRequestStatusRejected: "Rejected",
-			models.ApprovalRequestStatusRevision: "Revision",
-			models.ApprovalRequestStatusPending:  "WaitingApproval",
-		}[approvalStatus]
-		if status == "" {
-			status = approvalStatus
-		}
-		now := time.Now().UTC()
-		var approvedAt *time.Time
-		if approvalStatus == models.ApprovalRequestStatusApproved {
-			approvedAt = &now
-		}
-		_, err := s.transactionDB().Exec(`UPDATE purchase_orders SET status = $1, approved_at = COALESCE($2, approved_at), approved_by = CASE WHEN $2 IS NULL THEN approved_by ELSE $3 END, updated_at = NOW(), updated_by = $3 WHERE id = $4 AND account_id = $5`,
-			status, approvedAt, actor, entityID, s.Auth.AccountID)
-		return err
-	case models.ApprovalEntityRequestForQuotation, models.ApprovalEntityGoodsReceive, models.ApprovalEntitySupplierInvoice, models.ApprovalEntityPayment, models.ApprovalEntityBudgetControl, models.ApprovalEntityBudgetAdjustment:
-		return s.syncProcurementDocumentStatus(approvalEntityTableName(entityType), entityID, approvalStatus, actor)
-	case models.ApprovalEntityStockAdjustment:
-		return s.syncStockAdjustmentStatus(entityID, approvalStatus, actor)
-	default:
-		return nil
+	if entityType == models.ApprovalEntityBudgetControl || entityType == models.ApprovalEntityBudgetAdjustment {
+		return s.syncApprovalEntityStatus(approvalEntityTableName(entityType), entityID, approvalStatus, actor)
 	}
+	return nil
 }
 
 func (s *ApprovalService) syncDocumentStatusTx(tx *sqlx.Tx, entityType string, entityID int64, approvalStatus string, actor string) error {
 	entityType = strings.ToUpper(strings.TrimSpace(entityType))
-	switch entityType {
-	case models.ApprovalEntityPurchaseRequest:
-		status := map[string]string{
-			models.ApprovalRequestStatusApproved: "Approved",
-			models.ApprovalRequestStatusRejected: "Rejected",
-			models.ApprovalRequestStatusRevision: "Revision",
-			models.ApprovalRequestStatusPending:  "WaitingApproval",
-		}[approvalStatus]
-		if status == "" {
-			status = approvalStatus
-		}
-		_, err := tx.Exec(`UPDATE purchase_requests SET status = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`,
-			status, actor, entityID, s.Auth.AccountID)
-		return err
-	case models.ApprovalEntityPurchaseOrder:
-		status := map[string]string{
-			models.ApprovalRequestStatusApproved: "Approved",
-			models.ApprovalRequestStatusRejected: "Rejected",
-			models.ApprovalRequestStatusRevision: "Revision",
-			models.ApprovalRequestStatusPending:  "WaitingApproval",
-		}[approvalStatus]
-		if status == "" {
-			status = approvalStatus
-		}
-		now := time.Now().UTC()
-		var approvedAt *time.Time
-		if approvalStatus == models.ApprovalRequestStatusApproved {
-			approvedAt = &now
-		}
-		_, err := tx.Exec(`UPDATE purchase_orders SET status = $1, approved_at = COALESCE($2, approved_at), approved_by = CASE WHEN $2 IS NULL THEN approved_by ELSE $3 END, updated_at = NOW(), updated_by = $3 WHERE id = $4 AND account_id = $5`,
-			status, approvedAt, actor, entityID, s.Auth.AccountID)
-		return err
-	case models.ApprovalEntityRequestForQuotation, models.ApprovalEntityGoodsReceive, models.ApprovalEntitySupplierInvoice, models.ApprovalEntityPayment, models.ApprovalEntityBudgetControl, models.ApprovalEntityBudgetAdjustment:
-		return s.syncProcurementDocumentStatusTx(tx, approvalEntityTableName(entityType), entityID, approvalStatus, actor)
-	case models.ApprovalEntityStockAdjustment:
-		return s.syncStockAdjustmentStatusTx(tx, entityID, approvalStatus, actor)
-	default:
-		return nil
+	if entityType == models.ApprovalEntityBudgetControl || entityType == models.ApprovalEntityBudgetAdjustment {
+		return s.syncApprovalEntityStatusTx(tx, approvalEntityTableName(entityType), entityID, approvalStatus, actor)
 	}
-}
-
-func stockAdjustmentApprovalStatus(approvalStatus string) string {
-	status := map[string]string{
-		models.ApprovalRequestStatusApproved: "Approved",
-		models.ApprovalRequestStatusRejected: "Rejected",
-		models.ApprovalRequestStatusRevision: "Revision",
-		models.ApprovalRequestStatusPending:  "WaitingApproval",
-	}[approvalStatus]
-	if status == "" {
-		return approvalStatus
-	}
-	return status
-}
-
-func (s *ApprovalService) syncStockAdjustmentStatus(entityID int64, approvalStatus string, actor string) error {
-	tx, err := s.transactionDB().BeginTxx(context.Background(), nil)
-	if err != nil {
-		return err
-	}
-	defer func() {
-		if tx != nil {
-			_ = tx.Rollback()
-		}
-	}()
-	if err = s.syncStockAdjustmentStatusTx(tx, entityID, approvalStatus, actor); err != nil {
-		return err
-	}
-	if err = tx.Commit(); err != nil {
-		return err
-	}
-	tx = nil
 	return nil
 }
 
-func (s *ApprovalService) syncStockAdjustmentStatusTx(tx *sqlx.Tx, entityID int64, approvalStatus string, actor string) error {
-	status := stockAdjustmentApprovalStatus(approvalStatus)
-	if approvalStatus != models.ApprovalRequestStatusApproved {
-		_, err := tx.Exec(`UPDATE stock_transactions
-			SET approval_status = $1, updated_at = NOW(), updated_by = $2
-			WHERE id = $3 AND account_id = $4 AND source_entity_type = 'STOCK_ADJUSTMENT'`,
-			status, actor, entityID, s.Auth.AccountID)
-		return err
-	}
-
-	type stockAdjustmentPostingRow struct {
-		ID              int64      `db:"id"`
-		AccountID       int64      `db:"account_id"`
-		TransactionDate time.Time  `db:"transaction_date"`
-		ItemID          int64      `db:"item_id"`
-		ItemCode        string     `db:"item_code"`
-		ItemName        string     `db:"item_name"`
-		UOMID           *int64     `db:"uom_id"`
-		UOMCode         string     `db:"uom_code"`
-		UOMName         string     `db:"uom_name"`
-		CostCenterID    *int64     `db:"cost_center_id"`
-		CostCenterName  string     `db:"cost_center_name"`
-		LocationID      *int64     `db:"location_id"`
-		LocationName    string     `db:"location_name"`
-		QtyIn           float64    `db:"qty_in"`
-		QtyOut          float64    `db:"qty_out"`
-		TotalCost       float64    `db:"total_cost"`
-		PostedAt        *time.Time `db:"posted_at"`
-	}
-
-	var row stockAdjustmentPostingRow
-	if err := tx.Get(&row, `SELECT id, account_id, transaction_date, item_id, item_code, item_name, uom_id, uom_code, uom_name,
-			cost_center_id, cost_center_name, location_id, location_name, qty_in, qty_out, total_cost, posted_at
-		FROM stock_transactions
-		WHERE id = $1 AND account_id = $2 AND source_entity_type = 'STOCK_ADJUSTMENT'
-		FOR UPDATE`, entityID, s.Auth.AccountID); err != nil {
-		return err
-	}
-
-	if row.PostedAt != nil {
-		_, err := tx.Exec(`UPDATE stock_transactions SET approval_status = $1, updated_at = NOW(), updated_by = $2 WHERE id = $3 AND account_id = $4`,
-			status, actor, entityID, s.Auth.AccountID)
-		return err
-	}
-
-	qtyDelta := row.QtyIn - row.QtyOut
-	costDelta := row.TotalCost
-	if row.QtyOut > 0 && row.QtyIn == 0 {
-		costDelta = -row.TotalCost
-	}
-
-	sqlQuery := `INSERT INTO stocks
-	(account_id, item_id, item_code, item_name, uom_id, uom_code, uom_name, cost_center_id, cost_center_name, location_id, location_name,
-	qty_on_hand, average_cost, total_cost, last_transaction_at, created_by)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::numeric,
-		CASE WHEN $12::numeric > 0 THEN $13::numeric / $12::numeric ELSE 0 END,
-		$13::numeric, $14, $15)
-	ON CONFLICT (account_id, item_id, COALESCE(cost_center_id, 0), COALESCE(location_id, 0))
-	DO UPDATE SET
-		item_code = EXCLUDED.item_code,
-		item_name = EXCLUDED.item_name,
-		uom_id = EXCLUDED.uom_id,
-		uom_code = EXCLUDED.uom_code,
-		uom_name = EXCLUDED.uom_name,
-		cost_center_name = EXCLUDED.cost_center_name,
-		location_name = EXCLUDED.location_name,
-		qty_on_hand = stocks.qty_on_hand + EXCLUDED.qty_on_hand,
-		total_cost = stocks.total_cost + EXCLUDED.total_cost,
-		average_cost = CASE WHEN stocks.qty_on_hand + EXCLUDED.qty_on_hand > 0
-			THEN (stocks.total_cost + EXCLUDED.total_cost) / (stocks.qty_on_hand + EXCLUDED.qty_on_hand)
-			ELSE 0
-		END,
-		last_transaction_at = EXCLUDED.last_transaction_at,
-		updated_at = NOW(),
-		updated_by = EXCLUDED.created_by
-	RETURNING qty_on_hand`
-
-	var balanceQty float64
-	if err := tx.QueryRow(
-		sqlQuery,
-		row.AccountID,
-		row.ItemID,
-		row.ItemCode,
-		row.ItemName,
-		row.UOMID,
-		row.UOMCode,
-		row.UOMName,
-		row.CostCenterID,
-		row.CostCenterName,
-		row.LocationID,
-		row.LocationName,
-		qtyDelta,
-		costDelta,
-		row.TransactionDate,
-		actor,
-	).Scan(&balanceQty); err != nil {
-		return err
-	}
-
-	now := time.Now().UTC()
-	_, err := tx.Exec(`UPDATE stock_transactions
-		SET approval_status = $1, balance_qty = $2, posted_at = $3, posted_by = $4, updated_at = NOW(), updated_by = $4
-		WHERE id = $5 AND account_id = $6 AND source_entity_type = 'STOCK_ADJUSTMENT'`,
-		status, balanceQty, now, actor, entityID, s.Auth.AccountID)
-	return err
-}
-
-func (s *ApprovalService) syncProcurementDocumentStatus(tableName string, entityID int64, approvalStatus string, actor string) error {
+func (s *ApprovalService) syncApprovalEntityStatus(tableName string, entityID int64, approvalStatus string, actor string) error {
 	if tableName == "" {
 		return nil
-	}
-	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
-		return errors.New("goods receive approval requires inventory posting, which is not configured")
 	}
 	status := map[string]string{
 		models.ApprovalRequestStatusApproved: "Approved",
@@ -1189,12 +977,9 @@ func (s *ApprovalService) syncProcurementDocumentStatus(tableName string, entity
 	return nil
 }
 
-func (s *ApprovalService) syncProcurementDocumentStatusTx(tx *sqlx.Tx, tableName string, entityID int64, approvalStatus string, actor string) error {
+func (s *ApprovalService) syncApprovalEntityStatusTx(tx *sqlx.Tx, tableName string, entityID int64, approvalStatus string, actor string) error {
 	if tableName == "" {
 		return nil
-	}
-	if tableName == "goods_receives" && approvalStatus == models.ApprovalRequestStatusApproved {
-		return errors.New("goods receive approval requires inventory posting, which is not configured")
 	}
 	status := map[string]string{
 		models.ApprovalRequestStatusApproved: "Approved",
@@ -1220,14 +1005,6 @@ func (s *ApprovalService) syncProcurementDocumentStatusTx(tx *sqlx.Tx, tableName
 
 func approvalEntityTableName(entityType string) string {
 	switch strings.ToUpper(strings.TrimSpace(entityType)) {
-	case models.ApprovalEntityRequestForQuotation:
-		return "request_for_quotations"
-	case models.ApprovalEntityGoodsReceive:
-		return "goods_receives"
-	case models.ApprovalEntitySupplierInvoice:
-		return "supplier_invoices"
-	case models.ApprovalEntityPayment:
-		return "payments"
 	case models.ApprovalEntityBudgetControl, models.ApprovalEntityBudgetAdjustment:
 		return "budget_controls"
 	default:
@@ -1278,18 +1055,6 @@ func approvalStatusLabel(status string) string {
 
 func approvalEntityLabel(entityType string) string {
 	switch strings.ToUpper(strings.TrimSpace(entityType)) {
-	case models.ApprovalEntityPurchaseRequest:
-		return "Purchase Request"
-	case models.ApprovalEntityPurchaseOrder:
-		return "Purchase Order"
-	case models.ApprovalEntityRequestForQuotation:
-		return "Request for Quotation"
-	case models.ApprovalEntityGoodsReceive:
-		return "Goods Receive"
-	case models.ApprovalEntitySupplierInvoice:
-		return "Supplier Invoice"
-	case models.ApprovalEntityPayment:
-		return "Payment"
 	case models.ApprovalEntityBudgetControl:
 		return "Budget Control"
 	case models.ApprovalEntityBudgetAdjustment:

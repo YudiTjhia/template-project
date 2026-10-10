@@ -1,6 +1,7 @@
 package models
 
 import (
+	"backend/shared/mmodels"
 	"context"
 	"errors"
 	"fmt"
@@ -61,7 +62,6 @@ type Account struct {
 	CompanyLogoURL  string     `json:"company_logo_url" db:"company_logo_url"`
 	IsActive        bool       `json:"is_active" db:"is_active"`
 	AccountEmail    string     `json:"account_email" db:"account_email"`
-	ReferralCode    string     `json:"referral_code" db:"referral_code"`
 	Address         string     `json:"address" db:"address"`
 	Latitude        float64    `json:"latitude" db:"latitude"`
 	Longitude       float64    `json:"longitude" db:"longitude"`
@@ -78,7 +78,7 @@ type Account struct {
 	OTPExpired      *time.Time `json:"otp_expired,omitempty" db:"otp_expired"`
 }
 
-const accountSelectColumns = `a.id, a.account_name, a.company_name, a.company_logo_url, a.is_active, a.account_email, a.referral_code, a.address, a.latitude, a.longitude, a.mobilephone, a.phone, a.terms_accepted, a.terms_accepted_at, a.terms_version, a.otp, a.otp_expired,
+const accountSelectColumns = `a.id, a.account_name, a.company_name, a.company_logo_url, a.is_active, a.account_email, a.address, a.latitude, a.longitude, a.mobilephone, a.phone, a.terms_accepted, a.terms_accepted_at, a.terms_version, a.otp, a.otp_expired,
 a.created_at, a.created_by, a.updated_at, a.updated_by`
 
 func NewAccount(db *sqlx.DB, auth Auth) Account {
@@ -91,7 +91,7 @@ func NewAccount(db *sqlx.DB, auth Auth) Account {
 }
 
 func (m Account) Migrate() {
-	sql := `CREATE TABLE IF NOT EXISTS accounts (
+	sql := `CREATE TABLE IF NOT EXISTS ` + mmodels.AccountTable + ` (
 	id SERIAL PRIMARY KEY,
 	account_name VARCHAR(255) NOT NULL,
 	company_name VARCHAR(255) NOT NULL DEFAULT '',
@@ -116,7 +116,7 @@ func (m Account) Migrate() {
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE INDEX IF NOT EXISTS idx_accounts_name ON accounts (LOWER(account_name));`
+	sql = `CREATE INDEX IF NOT EXISTS idx_accounts_name ON ` + mmodels.AccountTable + ` (LOWER(account_name));`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
@@ -128,85 +128,81 @@ func (m Account) Migrate() {
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON accounts (LOWER(account_email));`
+	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_email ON ` + mmodels.AccountTable + ` (LOWER(account_email));`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_mobilephone ON accounts (LOWER(mobilephone)) WHERE mobilephone <> '';`
+	sql = `CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_mobilephone ON ` + mmodels.AccountTable + ` (LOWER(mobilephone)) WHERE mobilephone <> '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `CREATE INDEX IF NOT EXISTS idx_accounts_active ON accounts (is_active);`
+	sql = `CREATE INDEX IF NOT EXISTS idx_accounts_active ON ` + mmodels.AccountTable + ` (is_active);`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_name VARCHAR(255) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS account_name VARCHAR(255) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS company_name VARCHAR(255) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS company_logo_url TEXT NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS company_logo_url TEXT NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS is_active BOOLEAN NOT NULL DEFAULT true;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS account_email VARCHAR(255) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS account_email VARCHAR(255) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS referral_code VARCHAR(100) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS address TEXT NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS latitude NUMERIC(12,8) NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS latitude NUMERIC(12,8) NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS longitude NUMERIC(12,8) NOT NULL DEFAULT 0;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS longitude NUMERIC(12,8) NOT NULL DEFAULT 0;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS mobilephone VARCHAR(100) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS phone VARCHAR(100) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS phone VARCHAR(100) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_accepted BOOLEAN NOT NULL DEFAULT false;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_accepted_at TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS terms_version VARCHAR(50) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS terms_version VARCHAR(50) NOT NULL DEFAULT '';`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT '';`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS otp VARCHAR(20) NOT NULL DEFAULT '';`
-	log.Println("[SQL]=", sql)
-	m.DB.MustExec(sql)
-
-	sql = `ALTER TABLE accounts ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ;`
+	sql = `ALTER TABLE ` + mmodels.AccountTable + ` ADD COLUMN IF NOT EXISTS otp_expired TIMESTAMPTZ;`
 	log.Println("[SQL]=", sql)
 	m.DB.MustExec(sql)
 }
 
 func (m Account) TableName() string {
-	return "accounts"
+	return mmodels.AccountTable
 }
 
 func (m Account) ValidateCreate() error {
@@ -237,7 +233,6 @@ func (m Account) Create() (int64, error) {
 	m.CompanyName = strings.TrimSpace(m.CompanyName)
 	m.CompanyLogoURL = strings.TrimSpace(m.CompanyLogoURL)
 	m.AccountEmail = strings.TrimSpace(m.AccountEmail)
-	m.ReferralCode = strings.ToUpper(strings.TrimSpace(m.ReferralCode))
 	m.Address = strings.TrimSpace(m.Address)
 	m.MobilePhone = strings.TrimSpace(m.MobilePhone)
 	m.Phone = strings.TrimSpace(m.Phone)
@@ -262,9 +257,9 @@ func (m Account) Create() (int64, error) {
 		return 0, errors.New("created_by wajib diisi")
 	}
 
-	sql := `INSERT INTO accounts
-	(account_name, company_name, company_logo_url, is_active, account_email, referral_code, address, latitude, longitude, mobilephone, phone, terms_accepted, terms_accepted_at, terms_version, otp, otp_expired, created_by)
-	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+	sql := `INSERT INTO ` + mmodels.AccountTable + `
+	(account_name, company_name, company_logo_url, is_active, account_email, address, latitude, longitude, mobilephone, phone, terms_accepted, terms_accepted_at, terms_version, otp, otp_expired, created_by)
+	VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
 	RETURNING id`
 
 	log.Println("[SQL]=", sql)
@@ -287,7 +282,7 @@ func (m Account) Create() (int64, error) {
 	})
 
 	var id int64
-	err := m.DB.QueryRow(sql, m.AccountName, m.CompanyName, m.CompanyLogoURL, m.IsActive, m.AccountEmail, m.ReferralCode, m.Address, m.Latitude, m.Longitude, m.MobilePhone, m.Phone, m.TermsAccepted, m.TermsAcceptedAt, m.TermsVersion, m.OTP, m.OTPExpired, createdBy).Scan(&id)
+	err := m.DB.QueryRow(sql, m.AccountName, m.CompanyName, m.CompanyLogoURL, m.IsActive, m.AccountEmail, m.Address, m.Latitude, m.Longitude, m.MobilePhone, m.Phone, m.TermsAccepted, m.TermsAcceptedAt, m.TermsVersion, m.OTP, m.OTPExpired, createdBy).Scan(&id)
 	return id, err
 }
 
@@ -296,7 +291,6 @@ func (m Account) Update() error {
 	m.CompanyName = strings.TrimSpace(m.CompanyName)
 	m.CompanyLogoURL = strings.TrimSpace(m.CompanyLogoURL)
 	m.AccountEmail = strings.TrimSpace(m.AccountEmail)
-	m.ReferralCode = strings.ToUpper(strings.TrimSpace(m.ReferralCode))
 	m.Address = strings.TrimSpace(m.Address)
 	m.MobilePhone = strings.TrimSpace(m.MobilePhone)
 	m.Phone = strings.TrimSpace(m.Phone)
@@ -324,26 +318,25 @@ func (m Account) Update() error {
 		}
 	}
 
-	sql := `UPDATE accounts
+	sql := `UPDATE ` + mmodels.AccountTable + `
 	SET account_name = $1,
 		company_name = $2,
 		company_logo_url = $3,
 		is_active = $4,
 		account_email = $5,
-		referral_code = $6,
-		address = $7,
-		latitude = $8,
-		longitude = $9,
-		mobilephone = $10,
-		phone = $11,
-		terms_accepted = $12,
-		terms_accepted_at = $13,
-		terms_version = $14,
-		otp = $15,
-		otp_expired = $16,
+		address = $6,
+		latitude = $7,
+		longitude = $8,
+		mobilephone = $9,
+		phone = $10,
+		terms_accepted = $11,
+		terms_accepted_at = $12,
+		terms_version = $13,
+		otp = $14,
+		otp_expired = $15,
 		updated_at = NOW(),
-		updated_by = $17
-	WHERE id = $18`
+		updated_by = $16
+	WHERE id = $17`
 
 	log.Println("[SQL]=", sql)
 	LogSQLArgs(map[string]interface{}{
@@ -365,7 +358,7 @@ func (m Account) Update() error {
 		"id":             m.ID,
 	})
 
-	_, err := m.DB.Exec(sql, m.AccountName, m.CompanyName, m.CompanyLogoURL, m.IsActive, m.AccountEmail, m.ReferralCode, m.Address, m.Latitude, m.Longitude, m.MobilePhone, m.Phone, m.TermsAccepted, m.TermsAcceptedAt, m.TermsVersion, m.OTP, m.OTPExpired, updatedBy, m.ID)
+	_, err := m.DB.Exec(sql, m.AccountName, m.CompanyName, m.CompanyLogoURL, m.IsActive, m.AccountEmail, m.Address, m.Latitude, m.Longitude, m.MobilePhone, m.Phone, m.TermsAccepted, m.TermsAcceptedAt, m.TermsVersion, m.OTP, m.OTPExpired, updatedBy, m.ID)
 	return err
 }
 
@@ -375,7 +368,7 @@ func (m Account) ensureEmailAvailable(excludeID int64) error {
 		return errors.New("email account wajib diisi")
 	}
 
-	sql := `SELECT id FROM accounts WHERE LOWER(account_email) = $1`
+	sql := `SELECT id FROM ` + mmodels.AccountTable + ` WHERE LOWER(account_email) = $1`
 	args := []interface{}{email}
 	if excludeID > 0 {
 		sql += ` AND id <> $2`
@@ -400,7 +393,7 @@ func (m Account) ensureMobilephoneAvailable(excludeID int64) error {
 		return errors.New("mobilephone account wajib diisi")
 	}
 
-	sql := `SELECT id FROM accounts WHERE LOWER(mobilephone) = $1`
+	sql := `SELECT id FROM ` + mmodels.AccountTable + ` WHERE LOWER(mobilephone) = $1`
 	args := []interface{}{mobilephone}
 	if excludeID > 0 {
 		sql += ` AND id <> $2`
@@ -424,7 +417,7 @@ func (m Account) Delete() error {
 		return err
 	}
 
-	sql := `DELETE FROM accounts WHERE id = $1`
+	sql := `DELETE FROM ` + mmodels.AccountTable + ` WHERE id = $1`
 	log.Println("[SQL]=", sql)
 	LogSQLArgs(map[string]interface{}{"id": m.ID})
 
@@ -550,6 +543,6 @@ func (m Account) FindRecentList(limit int, search string) ([]Account, error) {
 
 func accountSelectQuery(where string) string {
 	return `SELECT ` + accountSelectColumns + `
-	FROM accounts a
+	FROM ` + mmodels.AccountTable + ` a
 	WHERE ` + where
 }

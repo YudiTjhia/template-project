@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../models/account_profile_model.dart';
 import '../navigation/app_drawer_menu.dart';
 import '../services/account_profile_service.dart';
+import '../shared/widgets/responsive_page_layout.dart';
 
 class AccountProfilePage extends StatefulWidget {
   const AccountProfilePage({super.key, this.service, this.enableDrawer = true});
@@ -56,86 +57,92 @@ class _AccountProfilePageState extends State<AccountProfilePage> {
       drawer: widget.enableDrawer
           ? const AppDrawerMenu(selectedRoute: '/profile/account')
           : null,
-      body: _loading
-          ? const Center(child: CircularProgressIndicator())
-          : _error != null
-          ? Center(
-              child: Padding(
-                padding: const EdgeInsets.all(24),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(_error!, textAlign: TextAlign.center),
-                    const SizedBox(height: 12),
-                    OutlinedButton.icon(
-                      onPressed: _loadAccount,
-                      icon: const Icon(Icons.refresh),
-                      label: const Text('Coba lagi'),
-                    ),
-                  ],
-                ),
-              ),
-            )
-          : account == null
-          ? const Center(child: Text('Account tidak tersedia'))
-          : ListView(
-              padding: const EdgeInsets.all(20),
-              children: [
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      children: [
-                        _AccountAvatar(account: account),
-                        const SizedBox(height: 12),
-                        Text(
-                          account.accountName.isEmpty
-                              ? 'Account'
-                              : account.accountName,
-                          style: Theme.of(context).textTheme.titleLarge,
-                          textAlign: TextAlign.center,
-                        ),
-                        if (account.companyName.isNotEmpty) ...[
-                          const SizedBox(height: 4),
-                          Text(account.companyName),
-                        ],
-                        const SizedBox(height: 8),
-                        Chip(
-                          label: Text(account.isActive ? 'Aktif' : 'Nonaktif'),
-                          avatar: Icon(
-                            account.isActive
-                                ? Icons.check_circle_outline
-                                : Icons.pause_circle_outline,
-                            size: 18,
-                          ),
-                        ),
-                      ],
-                    ),
+      body: ResponsivePageLayout(
+        maxWidth: 900,
+        safeArea: true,
+        child: _loading
+            ? const Center(child: CircularProgressIndicator())
+            : _error != null
+            ? Center(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(_error!, textAlign: TextAlign.center),
+                      const SizedBox(height: 12),
+                      OutlinedButton.icon(
+                        onPressed: _loadAccount,
+                        icon: const Icon(Icons.refresh),
+                        label: const Text('Coba lagi'),
+                      ),
+                    ],
                   ),
                 ),
-                const SizedBox(height: 12),
-                _AccountDetail(
-                  icon: Icons.email_outlined,
-                  label: 'Email account',
-                  value: account.accountEmail,
-                ),
-                _AccountDetail(
-                  icon: Icons.phone_android_outlined,
-                  label: 'Mobile phone',
-                  value: account.mobilePhone,
-                ),
-                _AccountDetail(
-                  icon: Icons.phone_outlined,
-                  label: 'Telepon',
-                  value: account.phone,
-                ),
-                _AccountDetail(
-                  icon: Icons.location_on_outlined,
-                  label: 'Alamat',
-                  value: account.address,
-                ),
-              ],
-            ),
+              )
+            : account == null
+            ? const Center(child: Text('Account tidak tersedia'))
+            : ListView(
+                padding: const EdgeInsets.symmetric(vertical: 20),
+                children: [
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        children: [
+                          _AccountAvatar(account: account),
+                          const SizedBox(height: 12),
+                          Text(
+                            account.accountName.isEmpty
+                                ? 'Account'
+                                : account.accountName,
+                            style: Theme.of(context).textTheme.titleLarge,
+                            textAlign: TextAlign.center,
+                          ),
+                          if (account.companyName.isNotEmpty) ...[
+                            const SizedBox(height: 4),
+                            Text(account.companyName),
+                          ],
+                          const SizedBox(height: 8),
+                          Chip(
+                            label: Text(
+                              account.isActive ? 'Aktif' : 'Nonaktif',
+                            ),
+                            avatar: Icon(
+                              account.isActive
+                                  ? Icons.check_circle_outline
+                                  : Icons.pause_circle_outline,
+                              size: 18,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _AccountDetail(
+                    icon: Icons.email_outlined,
+                    label: 'Email account',
+                    value: account.accountEmail,
+                  ),
+                  _AccountDetail(
+                    icon: Icons.phone_android_outlined,
+                    label: 'Mobile phone',
+                    value: account.mobilePhone,
+                  ),
+                  _AccountDetail(
+                    icon: Icons.phone_outlined,
+                    label: 'Telepon',
+                    value: account.phone,
+                  ),
+                  _AccountDetail(
+                    icon: Icons.location_on_outlined,
+                    label: 'Alamat',
+                    value: account.address,
+                  ),
+                ],
+              ),
+      ),
     );
   }
 }

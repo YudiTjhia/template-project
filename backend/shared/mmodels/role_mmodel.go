@@ -36,7 +36,7 @@ func NewRoleMModel(ctx context.Context, db *sqlx.DB) *RoleMModel {
 		MModel: impl.MModel{
 			Context:   ctx,
 			Name:      "Role",
-			TableName: "roles",
+			TableName: RoleTable,
 			DB:        db,
 			Fields: []interfaces.IMField{
 				impl.MField{Type: "int64", DbType: "INTEGER", JsonTag: "id", DbTag: "id", IsPrimaryKey: true, IsIdentity: true, Required: true, IsNotUpdateField: true},
@@ -71,15 +71,15 @@ func (m *RoleMModel) Migrate() error {
 		return err
 	}
 	statements := []string{
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS role_name VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS actions TEXT[] NOT NULL DEFAULT '{}'::TEXT[]`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
-		`ALTER TABLE roles ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
-		`CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_account_name ON roles (account_id, LOWER(role_name))`,
-		`CREATE INDEX IF NOT EXISTS idx_roles_account_id ON roles (account_id)`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS account_id BIGINT NOT NULL DEFAULT 0`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS role_name VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS actions TEXT[] NOT NULL DEFAULT '{}'::TEXT[]`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS created_by VARCHAR(255) NOT NULL DEFAULT ''`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ`,
+		`ALTER TABLE ` + RoleTable + ` ADD COLUMN IF NOT EXISTS updated_by VARCHAR(255)`,
+		`CREATE UNIQUE INDEX IF NOT EXISTS idx_roles_account_name ON ` + RoleTable + ` (account_id, LOWER(role_name))`,
+		`CREATE INDEX IF NOT EXISTS idx_roles_account_id ON ` + RoleTable + ` (account_id)`,
 	}
 	for _, statement := range statements {
 		if _, err := tx.ExecContext(m.ContextOrBackground(), statement); err != nil {
@@ -230,7 +230,7 @@ func (m *RoleMModel) findList(limit int, search string, recent bool) ([]RoleMMod
 	if m.DB == nil {
 		return nil, errors.New("role metadata database is nil")
 	}
-	query := `SELECT id, account_id, role_name, actions, created_at, created_by, updated_at, updated_by FROM roles WHERE account_id = $1`
+	query := `SELECT id, account_id, role_name, actions, created_at, created_by, updated_at, updated_by FROM ` + RoleTable + ` WHERE account_id = $1`
 	args := []any{accountID}
 	if search != "" {
 		args = append(args, search)
@@ -259,7 +259,7 @@ func (m *RoleMModel) findByNameInsensitive(accountID int64, name string) (*RoleM
 	if m.DB == nil {
 		return nil, errors.New("role metadata database is nil")
 	}
-	query := `SELECT id, account_id, role_name, actions, created_at, created_by, updated_at, updated_by FROM roles WHERE account_id = $1 AND LOWER(role_name) = LOWER($2)`
+	query := `SELECT id, account_id, role_name, actions, created_at, created_by, updated_at, updated_by FROM ` + RoleTable + ` WHERE account_id = $1 AND LOWER(role_name) = LOWER($2)`
 	found := &RoleMModel{MModel: m.MModel}
 	if err := m.DB.GetContext(m.ContextOrBackground(), found, query, accountID, name); err != nil {
 		return nil, err
